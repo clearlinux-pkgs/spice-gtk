@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.31
-Release  : 1
+Release  : 2
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.31.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.31.tar.bz2
 Summary  : SPICE Client Gtk 2.0 library
