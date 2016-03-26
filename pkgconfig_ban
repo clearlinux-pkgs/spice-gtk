@@ -1,0 +1,11 @@
+# This file contains pkgconfig build requirements that get picked up
+# but are undesirable. One entry per line, no whitespace.
+gtk+-x11-$with_gtk
+libphodav-2.0
+gtk+-quartz-$with_gtk
+gtk+-win32-$with_gtk
+gtk+-x11-$with_gtk
+gtk+-$GTK_API_VERSION
+GOBJECT_INTROSPECTION
+polkit-gobject-1
+pygtk-2.0
