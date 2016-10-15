@@ -1,3 +1,1863 @@
+2016-06-21  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	Update NEWS for 0.32 release
+
+2016-06-21  Pavel Grunt  <pgrunt@redhat.com>
+
+	session: Keep brackets around ipv6 hostname
+	According to rfc2732:
+	"To use a literal IPv6 address in a URL, the literal address should be
+	enclosed in "[" and "]" characters."
+
+	Resolves: rhbz#1331777
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	session: Removed write-only variable
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-06-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	mailmap: fix my name
+
+2016-06-21  Victor Toso  <victortoso@redhat.com>
+
+	main: channel-main to increase file-transfer reference
+	This is a minor fix in the logic as in both situations (with or
+	without the patch) the reference count for the SpiceFileTransferTask
+	object is the same.
+
+	The change is interesting as SpiceFileTransferTask is created but on
+	g_file_read_async() it increases its reference count while
+	c->file_xfer_tasks keeps the original one.
+
+	It should be the other way around.
+	Acked-by: Marc-André Lureau <marcandre.lureau@gmail.com>
+
+	main: assign variable after check for null
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-06-20  Christophe Fergeau  <cfergeau@redhat.com>
+
+	build: Fix _DEPENDENCIES use
+	We want to trigger rebuild of libspice-client-gtk-3.0.la or
+	libspice-client-glib-2.0.la whenever the corresponding symbol file
+	changes.
+	However _DEPENDENCIES is not the right way of handling that as it will
+	disable automatic automake dependency generation.
+	This was not causing issues mainly because _DEPENDENCIES was mispelt as
+	_DEPEDENCIES.
+
+	Quoting automake manual:
+	https://www.gnu.org/software/automake/manual/automake.html#index-EXTRA_005fmaude_005fDEPENDENCIES-1
+	« The EXTRA_*_DEPENDENCIES variable may be useful for cases where you
+	merely want to augment the automake-generated _DEPENDENCIES variable
+	rather than replacing it. »
+
+	So this commit switches to use EXTRA_*_DEPENDENCIES rather than
+	*_DEPENDENCIES.
+
+2016-06-20  Marc-AndrÃ© Lureau  <marcandre.lureau@redhat.com>
+
+	build-sys: fix win32 build
+	Commit 0fafbe3 broke the build on win32, because it accesses
+	d->egl.enabled. Add a helper function and fix the build.
+
+	Reported-by: Frediano Ziglio <fziglio@redhat.com>
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	vncdisplaykeymap: fix -Werror=tautological-compare
+	vncdisplaykeymap.c: In function 'vnc_display_keymap_gdk2xtkbd_table':
+	vncdisplaykeymap.c:223:14: error: self-comparison always evaluates to true [-Werror=tautological-compare]
+	  if (GDK_IS_WIN32_WINDOW(window)) {
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-06-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	widget: fix keyboard ungrab after click
+	Since the switch to a container widget (gtkstack then gtkeventbox), the
+	grab may be lost when clicking on the display. Since events are treated
+	at the top level container, set widget "above-child" to trap all of them
+	to solve this.
+
+	Fixes:
+	https://bugs.freedesktop.org/show_bug.cgi?id=96595
+
+	Reported-by: Frediano Ziglio <fziglio@redhat.com>
+	Tested-by: Frediano Ziglio <fziglio@redhat.com>
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-06-20  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	widget: use scanout offset when using virgl
+	Ignoring the display area offset doesn't work nicely with virgl. Imho,
+	this condition is wrong even in QXL case.
+
+2016-06-17  Alexandru Visarion  <viorel.visarion@gmail.com>
+
+	channel-main: Fix spice_main_file_copy_async annotation
+	Without (array zero-terminated=1), one null terminated array
+	parameter is translated into a single element, so its binding
+	isn't usable.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-06-16  Frediano Ziglio  <fziglio@redhat.com>
+
+	widget: Disable IME context on display widget
+	This prevent Windows to handle IME on the widget which cause the
+	application to not receive keyboard events.
+
+	To test this issue set keyboard layout to Japanese and Microsoft
+	IME (the default one). Set the input method to full katakana, assure
+	your remote-viewer is using this method and start pressing
+	alphabetical keys. On the guest (open a terminal, an editor or
+	a word processor to make easier) you won't see any character.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-06-15  Christophe Fergeau  <cfergeau@redhat.com>
+
+	main: Don't delay update_display_timer(0) for up to 1 second
+	When using remote-viewer --full-screen with a VM/client with multiple
+	monitors, a race can be observed during auto-configuration. First, the
+	client monitors config is sent to the guest:
+	(remote-viewer:19480): GSpice-DEBUG: channel-main.c:1166 main-1:0: sending new monitors config to guest
+	(remote-viewer:19480): GSpice-DEBUG: channel-main.c:1183 main-1:0: monitor #0: 1920x1080+0+0 @ 32 bpp
+	(remote-viewer:19480): GSpice-DEBUG: channel-main.c:1183 main-1:0: monitor #1: 1920x1080+1920+0 @ 32 bpp
+
+	Then we receive messages from the agent which trigger a call to
+	update_display_timer(0)
+
+	This should cause the current monitors state to be sent to the server
+	very soon after this call. However, in the racy case, this is delayed
+	for nearly a second, and timer_set_display() ends up being called at the
+	wrong time, when information about the first display channel have been
+	received from the server, but not the second one.
+
+	When this happens, we inform the server that only one monitor is active,
+	then the server sends a MonitorsConfig message with 2 monitors (first
+	request we sent), and then with just 1 monitor (second request we sent).
+
+	This causes remote-viewer to show one fullscreen black window indicating
+	"Connected to server" on one monitor and a working fullscreen window on
+	the second monitor.
+
+	update_display_timer(0) schedules a timeout to be run with
+	g_timeout_add_seconds(0). However, g_timeout_add_seconds() schedules
+	timers with a granularity of a second, so the timeout we scheduled with
+	g_timeout_add_seconds() may fire up to 1 second later than when we
+	called it, while we really wanted it to fire as soon as possible.
+	Special-casing update_display_timer(0) and using g_timeout_add() in that
+	case avoid this issue. In theory, the race could probably still happen
+	with a very very bad timing, but in practice I don't think it will be
+	possible to trigger it after this change.
+
+	https://bugzilla.redhat.com/show_bug.cgi?id=1323092
+
+2016-06-15  Alexander Bokovoy  <abokovoy@redhat.com>
+
+	sasl: fix SASL GSSAPI by allowing NULL username
+	SASL GSSAPI module will try to negotiate authentication based on the
+	credentials in the default credentials cache. It does not matter if
+	SPICE knows username or not as SASL negotiation will pass through the
+	discovered name from the GSSAPI module.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-06-13  Frediano Ziglio  <fziglio@redhat.com>
+
+	Remove some warnings compiling for Windows
+	GetLastError returns a DWORD which is a "unsigned long" on Windows
+	so use "%lu" formatting instead of "%u".
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-06-13  Pavel Grunt  <pgrunt@redhat.com>
+
+	channel-display: Remove deprecated init functions
+	They are called at the construct time since spice-common commit:
+	5b6be16b37370bb774aa3c2a7d5c41791fdc3a1e
+
+	tests-uri: Define g_assert_nonnull
+	It is available since Glib 2.40
+
+	Require gtk+ 3.12
+	Allow to use gtk_stack_get_child_by_name
+
+2016-06-13  Frediano Ziglio  <fziglio@redhat.com>
+
+	widget: Do not mix function linkage
+	This prevents a possible crash on windows 32 bit.
+	The linkage of UnhookWindowsHookEx is WINAPI which is __stdcall while
+	callback for g_clear_pointer is C. This could cause stack pointer
+	corruption depending on compiler flags.
+	On __stdcall linkage function change the stack pointer while returning
+	from a function removing the parameters. On C linkage function leave
+	the stack pointer unchanged. So if the compiler call a __stdcall
+	function as a C function it expect the stack pointer to be unchanged
+	causing the pointer to be inconsistent by an offset.
+
+2016-06-09  Frediano Ziglio  <fziglio@redhat.com>
+
+	widget: Do not ignore unsupported keys from keyboard
+	If Windows layout does not support a given key the resulting virtual code
+	is set to 0xFF. To avoid losing this raw key (causing the key not been
+	sent to remote machine) detect this condition and handle the key.
+	The check for raw scancode is there to understand if we can handle
+	correctly the key in following code.
+	This problem can happen for instance using a 106 key Japanese keyboard
+	while the layout is set in English; in this case keys like CONVERT not
+	forwarded correctly.
+
+	Some note on how to reproduce and test this problem.
+
+	Physical way:
+	1- get a 106 key Japanese keyboard for your Windows client machine;
+	2- setup your client to English keyboard layout;
+	3- connect to a Linux machine (no matter the distro or version or
+	   keyboard configuration);
+	4- open "xinput test-xi2 <device>" command on Linux (device is
+	   the "AT" device in this case);
+	5- press CONVERT or other keys not present on an English keyboard.
+
+	Virtual way (Windows machine on a VM):
+	- set machine remote to VNC;
+	- assure Qmeu has lock-key-sync=off option to vnc;
+	- connect to Windows machine with a VNC client (I suggest TigerVNC
+	  as remote-viewer do some keyboard insertion);
+	- do steps 2, 3, 4 above
+	- press the CONVERT key. If you don't have you can simulate, either
+	  - change VNC client code to insert scancode 0x70 instead of another
+	    key and press this key;
+	  - disconnect main VNC client and use some tool to inject keys
+	    (I use a modifier version of vncdotool).
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-06-06  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Use the frame dimensions reported by the video decoder
+	The dimensions sent by the remote end are redundant and should not be
+	trusted.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-06-06  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget: Avoid using GDK_GRAB_FAILED defined in Gtk 3.16.
+	The returned value from do_pointer_grab() is treated as a boolean - grab
+	was successful or not. Change the function to return a boolean value.
+
+	Reported-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	mingw: Fix -Werror format & missing-prototypes
+	-Wmissing prototypes were enabled in d5e3a4a5c34fc4408298e824872c4ed511b4bb3c
+	format warnings were added in da8ecf1f95382e8c12fd14915f471a3e76e4b178
+
+2016-06-03  Pavel Grunt  <pgrunt@redhat.com>
+
+	spicy: Do not show underscore in label
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+2016-06-02  Pavel Grunt  <pgrunt@redhat.com>
+
+	spice-uri: Add ipv6 support
+	Just basic support -  http://user:password@[host]:port
+
+	Resolves: rhbz#1335239
+
+	spice-uri: Validate uri scheme
+	Related: rhbz#1335239
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	spice-uri: Check if port is in allowed range
+	Use g_ascii_strtoll because it helps to detect overflow.
+
+	Related: rhbz#1335239
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	spice-uri: Do not allow empty port string
+	Related: rhbz#1335239
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	spice-uri: Reset SpiceURI before parsing
+	Avoid using old values after parsing a new uri.
+
+	Related: rhbz#1335239
+
+	tests: Add test for SpiceURI
+	Related: rhbz#1335239
+
+2016-06-01  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Tweak the GStreamer decoder to avoid a compiler warning
+	We check that there is a matching frame in the queue before popping the
+	old ones. So we know the inner loop will find a match and thus that
+	frame will not be NULL. But figuring that out is too hard for the
+	compiler.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+	Reported-by: Marc-André Lureau <marcandre.lureau@gmail.com>
+
+2016-06-01  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	build-sys: update manywarnings.m4
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	build-sys: -Wshift-overflow=2
+	manywarnings.m4 update will bring new flags that fail with some
+	glib/gst headers.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	Fix many -Werror=format warnings
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	build-sys: remove -Wmissing-declarations
+	The warning doesn't show up anymore.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-06-01  Victor Toso  <victortoso@redhat.com>
+
+	channel: avoid crash on spice_channel_wakeup due NULL channel
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	tests: fix build with smartcard enabled
+	In file included from
+	../spice-common/common/client_marshallers.h:29:0,
+	from ../src/spice-channel-priv.h:35,
+	from ../src/spice-file-transfer-task-priv.h:28,
+	from file-transfer.c:3:
+	../spice-common/common/messages.h:45:23: fatal error: libcacard.h: No such file or directory
+	compilation terminated.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-31  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	doc: fix unused declarations
+	Fix all the gtk-doc: "unused declarations. They should be added to
+	spice-gtk-sections.txt in the appropriate place."
+
+	doc: add some missing block comments
+
+	Fix non gtk-doc comments
+	Fixes the following warning:
+	../../src/vmcstream.c:124: warning: Symbol name not found at the start of the comment block.
+	../../src/win-usb-driver-install.c:347: warning: Symbol name not found at the start of the comment block.
+
+	build-sys: remove some gtk+ 2.0 warnings flags
+	As we dropped gtk+ 2.0 anyway.
+
+	build-sys: enable -Wmissing-prototypes
+	Turns out it is possible to fix the warnings now.
+
+2016-05-31  Pavel Grunt  <pgrunt@redhat.com>
+
+	Update README
+	Remove gtk2 related stuff.
+	Recommend dnf for installing dependencies.
+
+	spice-uri: Mark parameter as unused
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-05-28  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	main: remove unneeded gtk-doc comments
+	They are no longer in the doc, and not really useful anyway
+
+	main: remove SpiceFileTransferTaskPrivate
+	The struct is already private
+
+2016-05-27  Victor Toso  <victortoso@redhat.com>
+
+	file-xfer: make handle_status agnostic of channel-main
+	This make possible to rename the function to
+	spice_file_transfer_task_handle_status as a handler for
+	VDAgentFileXferStatusMessage for a specific task.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-05-25  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Constify the video stream's dest and clip parameters
+	They are only supposed to be changed when receiving the relevant server
+	message.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-25  Pavel Grunt  <pgrunt@redhat.com>
+
+	file-transfer-task: Hide internals of SpiceFileTransferTask
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	file-trasfer-task: Protect header include
+	As stated in the commit d2f33178c40ac51b1c8b1bf796a328631d9869c7 Glib
+	applications should only include "spice-client.h".
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-05-25  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	egl: fix delayed widget realize
+	When the display is not yet realized, spice_display_widget_gl_scanout()
+	will fail because the egl context is not ready. The display is never
+	marked ready because the egl.image (and egl.scanout) is not set, and
+	some clients, such as virt-viewer will not realize the widget until the
+	display is ready.
+
+	Deal with gl scanout updates when the widget is not yet realized, and
+	mark the display as ready when egl is enabled (when last display draw
+	signal is from gl).
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	gtk: remove unneeded check
+	spice_cairo_draw_event() can deal with d->canvas.surface == NULL.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	gtk: rename spicex_* functions
+	spice-gtk used to have x11/shm backend, now it's only cairo
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	gtk: move canvas related data in its own structure
+	Group canvas related data to a sub-structure.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	egl: bind the scanout texture
+	glEGLImageTargetTexture2DOES() changes the current bound texture. If
+	the last texture bound is the cursor, update_scanout() will modify the
+	cursor texture, instead of the display.
+
+	Fix regression from commit 3539ac6212d506128bd38aad032e0363e78cb4f6.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	display: lower to debug gstreamer codec support
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-25  Pavel Grunt  <pgrunt@redhat.com>
+
+	spice-widget: Use correct enum value
+	GDK_GRAB_BROKEN is not GdkGrabStatus value, but GdkEventType
+
+2016-05-24  Pavel Grunt  <pgrunt@redhat.com>
+
+	Update spice-common submodule
+	Fixes lz decompression crash:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1285469
+
+	Christophe Fergeau (5):
+	      Remove 2 unused vfuncs from client_marshallers.h
+	      tests: Fix glib version check
+	      log: Clamp SPICE_DEBUG_LEVEL if it's too high
+	      log: Use SPICE_CONSTRUCTOR_FUNC
+	      log: Make sure glib threading is initialized
+
+	Eduardo Lima (Etrunko) (2):
+	      Fix build in systems with Glib version older than 2.38
+	      2/2] Add check for openssl
+
+	Fabiano Fidêncio (7):
+	      coverity: avoid use after free
+	      coverity: avoid resource leak
+	      coverity: avoid dereference after null check
+	      coverity: avoid division or modulo by zero
+	      coverity: remove unused value
+	      coverity: remove structurally dead code
+	      Use g_getenv() instead of getenv()
+
+	Frediano Ziglio (6):
+	      Cap logging level to the valid bounds
+	      tests: exit on SIGABRT
+	      define SPICE_CONSTRUCTOR_FUNC and SPICE_DESTRUCTOR_FUNC macros
+	      use macro to define constructor function
+	      fix 16 bpp LZ image decompression
+	      Explicitly specify size of SpiceMsgSmartcardData
+
+	Lin Ma (1):
+	      build-sys: Define opengl GL_LIBS and GL_CFLAGS in generated Makefile.in
+
+	Pavel Grunt (3):
+	      Define canvas_fix_alignment when is used
+	      test-logging: Include stdlib.h for _Exit()
+	      Remove GL support
+
+	Update .mailmap
+
+2016-05-23  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	egl: set current context, fix multiple display
+	On X11, each widget has its own context. Make sure we are using the
+	widget associated context when using gl.
+
+	With gtk 3.16, glEGLImageTargetTexture2DOES() can be called during
+	update scanout, since we can call gtk_gl_area_make_current(). On < 3.16,
+	do it before drawing.
+
+	Fixes:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1337721
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	egl: don't terminate display
+	This is global to the display connection: all egl resources will be
+	released, including those from other widgets or from the application.
+
+	Fix spice/virgl display being rendered black after another widget
+	display is destroyed.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	egl: don't destroy wayland egl context
+	The egl context is from Gtk on Wayland. Destroy it only on X11.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	egl: only swap buffers on x11
+	Gtk does it for us already with GtkGlArea.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	channel: check if channel has a session
+	Since 8943d2329, the channel may be disconnected from the session
+	before it's destroyed. In this case, session is NULL.
+
+	Fixes some critical with virt-manager when closing a display:
+
+	(virt-manager:20451): GSpice-CRITICAL **: spice_session_is_for_migration: assertion 'SPICE_IS_SESSION(session)' failed
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	util: remove STATIC_MUTEX macros
+	They are no longer needed since 0a9ec4ec0.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-05-19  Frediano Ziglio  <fziglio@redhat.com>
+
+	Spice-widget: Use new gdk_event_get_scancode if available
+	This new Gdk API allows in Windows to retrieve the raw scancodes sent
+	by Windows.
+	This allows us to do some translations getting the right value without
+	many hacks and supporting all possible layouts.
+	Windows convert the scancodes into virtual key codes. The translation is
+	1 -> N based on different condition. Also a single virtual key code can
+	be originated from different scancodes. This make quite complicated
+	(if not impossible) to get the original scancode from the hardware_keycode
+	field (which in Windows is the virtual key).
+	The additional check for native_scancode after calling this function
+	allows to support key injection.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-18  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Use decodebin as a fallback for the GStreamer video decoder
+	This means future video codecs may be supported automatically.
+	One can also force usage of decodebin by setting $SPICE_GSTVIDEO_AUTO.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	streaming: Probe GStreamer before advertising support for a codec
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	streaming: Allow disabling support for the builtin MJPEG video decoder
+	This makes it possible to test the GStreamer video decoder with MJPEG
+	streams.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	streaming: Add a GStreamer video decoder for MJPEG, VP8 and h264
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	streaming: Let the video decoder queue, schedule and drop the frames
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-16  Victor Toso  <victortoso@redhat.com>
+
+	file-xfer: fix segfault on agent disconnection
+	We are checking self->priv->error but accessing the argument GError *
+	which is NULL and leads to a segfault.
+
+	Program received signal SIGSEGV, Segmentation fault.
+	spice_file_transfer_task_completed (self=self@entry=0x7fffd0006f00, error=0x0) at channel-main.c:2963
+	2963            VDAgentFileXferStatusMessage msg = {
+	(gdb) bt
+	 #0  spice_file_transfer_task_completed (self=self@entry=0x7fffd0006f00, error=0x0) at channel-main.c:2963
+	 #1  in file_xfer_data_flushed_cb (source_object=0x7cc1d0, res=0x953390, user_data=user_data@entry=0x7fffd0006f00) at channel-main.c:1857
+	 #2  in g_task_return_now (task=0x953390) at gtask.c:1108
+	 #3  in g_task_return (task=0x953390, type=<optimized out>) at gtask.c:1166
+	 #4  in flush_foreach_remove (key=<optimized out>, value=<optimized out>, user_data=<optimized out>) at channel-main.c:928
+	 #5  in g_hash_table_foreach_remove_or_steal (hash_table=0x70cea0, func=func@entry=0x7ffff5616f10 <flush_foreach_remove>, user_data=user_data@entry=0x0, notify=notify@entry=1) at ghash.c:1492
+	 #6  in g_hash_table_foreach_remove (hash_table=<optimized out>, func=func@entry=0x7ffff5616f10 <flush_foreach_remove>, user_data=user_data@entry=0x0) at ghash.c:1538
+	 #7  in file_xfer_flushed (success=0, channel=0x7cc1d0) at channel-main.c:936
+	 #8  spice_main_channel_reset_agent (channel=0x7cc1d0) at channel-main.c:466
+	 #9  set_agent_connected (channel=0x7cc1d0, connected=connected@entry=0) at channel-main.c:1572
+	 #10 in spice_main_channel_reset (channel=0x7cc1d0, migrating=0) at channel-main.c:485
+	 #11 in spice_channel_coroutine (data=0x7cc1d0) at spice-channel.c:2564
+	 #12 in coroutine_trampoline (cc=0x7cb860) at coroutine_ucontext.c:63
+	 #13 in continuation_trampoline (i0=<optimized out>, i1=<optimized out>) at continuation.c:55
+	 #14 in ?? () from /lib64/libc.so.6
+	 #15 in ?? ()
+	 #16 in ?? ()
+	Backtrace stopped: Cannot access memory at address
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-05-13  Victor Toso  <victortoso@redhat.com>
+
+	file-xfer: fix file path leak
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-05-13  Pavel Grunt  <pgrunt@redhat.com>
+
+	doc, gir: Clarify availability of skip spice_get_option_group
+	Commit c288627110bbec1aba48b0bf91ce7ab4b12f70b3 made the function
+	available for other languages through gobject introspections. Mention
+	the change in the function description.
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-05-12  Pavel Grunt  <pgrunt@redhat.com>
+
+	spicy: Add option to control syncing modifiers
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	spice-gtk-session: Add sync modifiers property
+	It will help in cases where syncing modifiers keys is complicated:
+	 * not working leds for modifiers keys
+	 * different keyboard layout on the guest side
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-05-10  Victor Toso  <victortoso@redhat.com>
+
+	spicy: fix leak of transfer hash table
+	184 (88 direct, 96 indirect) bytes in 1 blocks are definitely lost in
+	loss record 10,025 of 11,515 at 0x4C28BF6: malloc
+	(vg_replace_malloc.c:299)
+	 by 0x9D33218: g_malloc (gmem.c:94)
+	 by 0x9D49D02: g_slice_alloc (gslice.c:1025)
+	 by 0x9D1CCBD: g_hash_table_new_full (ghash.c:711)
+	 by 0x406196: connection_new (spicy.c:1693)
+	 by 0x405BFE: main (spicy.c:1852)
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-05-10  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	spicy: add toggle mouse mode menu
+	This is just for testing, the UI could be different in better clients.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	main: do not always request client mouse mode
+	Whenever the mouse mode changed on the server, spice-gtk was requesting
+	client mode. Instead keep the last requested mode and request it
+	whenever it's possible.
+
+	Reviewed-by: Victor Toso <victortoso@redhat.com>
+
+	gtk: add spice_main_request_mouse_mode()
+	Send a SpiceMsgcMainMouseModeRequest message to request a mouse mode.
+
+	This allows to switch between client/absolute and server/relative mouse
+	modes.
+
+	This is necessary for some applications that require pointer
+	re-positioning, which we can't provide through a remote protocol easily
+	with client pointer (no such hardware-level message exists afaik).
+
+	Reviewed-by: Victor Toso <victortoso@redhat.com>
+
+2016-05-09  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Rename num_drops_on_receive to arrive_late_count
+	The frame may not get dropped once that's left up to video decoders.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	streaming: Optimize handling of the decoded frame buffer
+	The MJPEG decoder does not need a zero-filled buffer.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	streaming: Enable adding alternative video decoders
+	This replaces the original channel-display-mjpeg API with a VideoDecoder
+	base class which can be reimplemented by other decoders.
+	Furthermore this moves the MJPEG-specific state information from the
+	display_stream struct to a derived class of VideoDecoder.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-04  Visarion-Mingopol Alexandru  <viorel.visarion@gmail.com>
+
+	doc,gir: Don't skip spice_get_option_group()
+	There is no reason to not include the spice_get_option_group
+	method in the generated bindings, as it can be useful.
+
+	It was removed in the commit 2db9b8dd037e22d2b04e8e2aeecfd685524b7fef,
+	for the reason of causing warnings, but no warnings show up now.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-05-04  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	gtk: fix server-mode mouse
+	Since switching to gtkstack, server-side mouse mode has some issues with
+	grabs. There seems to be some grab gtk+ issue, but it seems to fall
+	under the API user responsability to have its own window when dealing
+	with pointer grabs. And gtk+ commit 9d0e8401c (Turn stack into no-window
+	widget) made things worse.
+
+	Making the widget an eventbox solves the grab issue.
+
+	Fixes:
+	https://bugs.freedesktop.org/show_bug.cgi?id=94764
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-05-03  Victor Toso  <victortoso@redhat.com>
+
+	spice-channel: fix small leak
+	182 bytes in 1 blocks are definitely lost in loss record 9,048 of 9,889
+	at 0x4C2A988: calloc (vg_replace_malloc.c:711)
+	by 0xB5F4270: g_malloc0 (gmem.c:124)
+	by 0x7320678: spice_channel_recv_link_hdr (spice-channel.c:1312)
+	by 0x7320678: spice_channel_coroutine (spice-channel.c:2543)
+	by 0x7355A4E: coroutine_trampoline (coroutine_ucontext.c:63)
+	by 0x7355802: continuation_trampoline (continuation.c:55)
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	spicevmc: don't disconnect on "cancel"
+	spicevmc was designed so its _finish functions should always be called;
+	With the gtask integration both _finish functions are trying to
+	disconnect the GCancellable even in the 'cancel' context which leads to
+	a deadlock as explained in the documentation.
+
+	Resolves: https://bugs.freedesktop.org/show_bug.cgi?id=95032
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-05-02  Pavel Grunt  <pgrunt@redhat.com>
+
+	channel: Abort migration in delayed unref
+	When channel is unref'ed during migration migrate_channel_event_cb
+	is called causing a crash by coroutine yielding to nonexistent channel.
+
+	The delayed_unref happens for the target host channel and will only occur
+	when the migration process fails.
+
+	As comment in spice_channel_coroutine says:
+	  Co-routine exits now - the SpiceChannel object may no longer exist,
+	  so don't do anything else now unless you like SEGVs
+
+	Related: rhbz#1318574
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	Do not use deprecated GtkStock
+	Use labels or named icons
+
+	Deprecated since Gtk 3.10
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-05-02  Fabiano Fidêncio  <fidencio@redhat.com>
+
+	coverity: identical code for different branches
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	coverity: avoid out of bounds access
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-04-27  Pavel Grunt  <pgrunt@redhat.com>
+
+	channel-main: Use CHANNEL_DEBUG for migration events
+	To show which channel got an error or an unhandled event
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-04-22  Javier Celaya  <javier.celaya@flexvdi.com>
+
+	Spice-widget: Allow smaller widget with scaling enabled
+	When resize-guest-to-match-window-size is disabled, the size request
+	(minimum size) of the spice widget is set to the current guest
+	resolution. The client window cannot be made smaller, even with
+	scale-display enabled.
+
+	This patch sets a size request of 640x480 when either
+	resize-guest-to-match-window-size OR scale-display are enabled, making
+	it posible to shrink the window and scale down the display.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-04-18  Takao Fujiwara  <tfujiwar@redhat.com>
+
+	Send Hangul key in KR keyboard
+	Korean keyboard assigns Hangul key on the position of Right Alt and
+	Left Alt and Hangul keys have the different scancodes but MapVirtualKey()
+	returned the same scancode and could not use Hangul key on Linux desktop.
+
+	The fix is to send the right scancode of VK_HANGUL.
+
+	Send key release event for some keys in JP keyboard
+	With the previous fix, WM_KEYDOWN of Alt+Zenkaku_Hankaku (VK_KANJI) can
+	be sent with spice-gtk but Alt+Zenkaku_Hankaku does not send the WM_KEYUP
+	event in Windows and it caused Linux desktop freeze with unlimited key
+	press events.
+
+	The proposed fix is to send the key release event in spice-gtk.
+
+	VK_DBE_ALPHANUMERIC, VK_DBE_HIRAGANA, VK_DBE_ROMAN are applied the
+	similar fixes.
+
+	Send Zenkaku_Hankaku key in JP keyboard
+	Zenkaku_Hankaku key has the different virtual-key codes between WM_KEYDOWN
+	and WM_KEYUP and MapVirtualKey() cannot get the scancode from virtual-key
+	code of WM_KEYDOWN (VK_DBE_DBCSCHAR) and spice-gtk didn't send the key
+	press events and caused the desktop freeze with unlimited key release
+	events.
+
+	The fix is to get the scancode from virtual-key code of WM_KEYUP
+	(VK_DBE_SBCSCHAR) and Zenkaku_Hankaku key works fine.
+
+	Alt + Zenkaku_Hankaku key also has the different virtual-key code and
+	MapVirtualKey() cannot get the scancode from the virtual-key and
+	spice-gtk didn't send the key press events and Alt+Zenkaku_Hankaku
+	could not be used.
+
+	The fix is to get the scancode from virtual-key code of Zenkaku_Hankaku key
+	(VK_DBE_SBCSCHAR).
+
+	VK_CAPITAL, VK_DBE_ROMAN are also applied the similar fixes.
+
+2016-04-15  Pavel Grunt  <pgrunt@redhat.com>
+
+	channel-main: Move variable to block where is needed
+
+	channel-main: Add helper function for getting audio
+	Avoid repeating the same code and having a SpiceSession variable
+	defined when is not really needed.
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-04-08  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	Ensure that file transfers get cancelled
+	When canceling a file transfer task in spicy, the client would often
+	stop sending additional data, but it would not send a "CANCELLED"
+	message to the guest. Because of this, the partial file would remain in
+	the guest's downloads folder until the spice client disconnected, at
+	which point the vdagent would remove the unfinshed file.
+
+	This CANCELLED status message was only being sent if the task was
+	canceled during the async file read operation. If you cancel a task,
+	it's quite likely that it will happen during other operations
+	(e.g. file_xfer_flush_async(), etc). In order to handle these scenarios
+	(and make sure that the file gets canceled properly), send the
+	FILE_XFER_STATUS message in spice_file_transfer_task_completed().
+
+2016-04-07  Pavel Grunt  <pgrunt@redhat.com>
+
+	Do not call spice_egl_cursor_set when egl is disabled
+	Fix memory leaks of cursor:
+
+	240 bytes in 1 blocks are possibly lost in loss record 10,786 of 12,521
+	   at 0x4C2FA60: calloc (vg_replace_malloc.c:711)
+	   by 0x3700F861: ralloc_size (ralloc.c:113)
+	   by 0x36FD2D68: UnknownInlinedFun (list.h:83)
+	   by 0x36FD2D68: (anonymous namespace)::builtin_variable_generator::add_const(char const*, int) (builtin_variables.cpp:578)
+	   by 0x36FD4775: generate_constants (builtin_variables.cpp:725)
+	   by 0x36FD4775: _mesa_glsl_initialize_variables(exec_list*, _mesa_glsl_parse_state*) (builtin_variables.cpp:1303)
+	   by 0x36E03D26: create_new_program (ff_fragment_shader.cpp:1225)
+	   by 0x36E03D26: _mesa_get_fixed_func_fragment_program (ff_fragment_shader.cpp:1295)
+	   by 0x36E9A577: update_program (state.c:157)
+	   by 0x36E9A577: _mesa_update_state_locked (state.c:473)
+	   by 0x36E9A6A0: _mesa_update_state (state.c:504)
+	   by 0x36EB05E4: teximage (teximage.c:2947)
+	   by 0x36EB211F: _mesa_TexImage2D (teximage.c:3009)
+	   by 0x4E5024F: spice_egl_cursor_set (spice-widget-egl.c:497)
+	   by 0x4E4BFD7: cursor_set (spice-widget.c:2346)
+	   by 0x50D6245: g_cclosure_user_marshal_VOID__INT_INT_INT_INT_POINTER (spice-marshal.c:245)
+
+	Use g_clear_pointer if possible
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	Use g_clear_object if possible
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	Use g_object_unref instead of gdk_cursor_unref
+	GdkCursor is GObject and gdk_cursor_unref has been deprecated since 3.0
+
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	Use GMutex instead of GStaticMutex
+	Since GLib 2.32 GMutex can be statically allocated, so GStaticMutex has
+	been deprecated.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	Use GDK_VERSION_MAX_ALLOWED
+	In order to avoid using a too new Gtk API.
+
+	Taken from virt-viewer 4c4a43c61db60ac815c0bc66730fa0a9a1571103
+
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	Use GLIB_VERSION_MAX_ALLOWED
+	In order to avoid using a too new GLib API.
+
+	Taken from virt-viewer 96d120903f0b95d49642e58d4f796b4f62aa8b20
+
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+2016-04-01  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget-egl: Define label only if can be used
+	The label can be used only with GDK_WINDOWING_WAYLAND
+
+	Silence -Wunused-label
+
+2016-03-30  Pavel Grunt  <pgrunt@redhat.com>
+
+	doc: Add description for spice_display_get_gl_scanout()
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	doc: Ignore spicy-connect
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	spice-file-transfer-task: Fix docstring
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	doc: channel stability should be Stable
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	doc: Remove private structs
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	usb-device-manager: Fix docstring
+	Add description, "Since" and change the parameter name in the docstring
+	to match parameter name in the function definition.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-03-30  Christophe Fergeau  <cfergeau@redhat.com>
+
+	build-sys: Update symbol files
+	The OSX-specific symbol files were not updated after the recent API
+	additions/removals, and some removed symbols were still listed in
+	map-file.
+
+2016-03-29  Victor Toso  <victortoso@redhat.com>
+
+	egl: fix leak when display is unrealize
+	eglTerminate should be called on unrealize. This not yet fix all the
+	leaks but reduces it significantly from 318kb to 74kb as definitely lost
+	and around 1mb to 8kb as indirectly lost.
+
+	4,096 bytes in 1 blocks are definitely lost in loss record
+	9,762 of 9,882
+	   at 0x35B19E40: drm_intel_gem_bo_map (intel_bufmgr_gem.c:1454)
+	   by 0x35688320: can_write_oacontrol (intel_extensions.c:121)
+	   by 0x35688320: intelInitExtensions (intel_extensions.c:279)
+	   by 0x35651380: brwCreateContext (brw_context.c:875)
+	   by 0x35602720: driCreateContextAttribs (dri_util.c:426)
+	   by 0xF0C48B1: dri2_create_context (egl_dri2.c:1072)
+	   by 0xF0BE727: eglCreateContext (eglapi.c:638)
+	   by 0x5461D27: spice_egl_init (spice-widget-egl.c:256)
+	   by 0x545B885: drawing_area_realize (spice-widget.c:581)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+	   by 0xB443A40: signal_emit_unlocked_R (gsignal.c:3629)
+	   by 0xB44C92E: g_signal_emit_valist (gsignal.c:3385)
+	   by 0xB44CC51: g_signal_emit (gsignal.c:3441)
+
+	4,856 (32 direct, 4,824 indirect) bytes in 1 blocks are definitely lost
+	in loss record 9,779 of 9,882
+	   at 0x4C2A988: calloc (vg_replace_malloc.c:711)
+	   by 0xF0BEEF7: _eglCreateArray (eglarray.c:71)
+	   by 0xF0BF420: _eglLinkConfig (eglconfig.c:90)
+	   by 0xF0C4F8D: dri2_add_config (egl_dri2.c:307)
+	   by 0xF0C66EE: dri2_x11_add_configs_for_visuals (platform_x11.c:766)
+	   by 0xF0C80EC: dri2_initialize_x11_dri3 (platform_x11.c:1319)
+	   by 0xF0C80EC: dri2_initialize_x11 (platform_x11.c:1464)
+	   by 0xF0C18FE: _eglMatchAndInitialize (egldriver.c:261)
+	   by 0xF0C19B8: _eglMatchDriver (egldriver.c:292)
+	   by 0xF0BDD31: eglInitialize (eglapi.c:482)
+	   by 0x5461A76: spice_egl_init (spice-widget-egl.c:226)
+	   by 0x545B885: drawing_area_realize (spice-widget.c:581)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+
+	5,921 (472 direct, 5,449 indirect) bytes in 1 blocks are definitely lost
+	in loss record 9,794 of 9,882
+	   at 0x4C2A988: calloc (vg_replace_malloc.c:711)
+	   by 0xF0C7E0E: dri2_initialize_x11_dri3 (platform_x11.c:1267)
+	   by 0xF0C7E0E: dri2_initialize_x11 (platform_x11.c:1464)
+	   by 0xF0C18FE: _eglMatchAndInitialize (egldriver.c:261)
+	   by 0xF0C19B8: _eglMatchDriver (egldriver.c:292)
+	   by 0xF0BDD31: eglInitialize (eglapi.c:482)
+	   by 0x5461A76: spice_egl_init (spice-widget-egl.c:226)
+	   by 0x545B885: drawing_area_realize (spice-widget.c:581)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+	   by 0xB443A40: signal_emit_unlocked_R (gsignal.c:3629)
+	   by 0xB44C92E: g_signal_emit_valist (gsignal.c:3385)
+	   by 0xB44CC51: g_signal_emit (gsignal.c:3441)
+	   by 0x5D2C9DB: gtk_widget_realize (gtkwidget.c:5454)
+
+	16,384 bytes in 4 blocks are definitely lost in loss record 9,854 of 9,882
+	   at 0x35B19E40: drm_intel_gem_bo_map (intel_bufmgr_gem.c:1454)
+	   by 0x3568AB30: intel_miptree_map_raw (intel_mipmap_tree.c:2149)
+	   by 0x3568CEE6: intel_miptree_map_gtt (intel_mipmap_tree.c:2182)
+	   by 0x3568CEE6: intel_miptree_map (intel_mipmap_tree.c:2774)
+	   by 0x35692851: intel_map_texture_image (intel_tex.c:227)
+	   by 0x35447C3B: store_texsubimage (texstore.c:1069)
+	   by 0x35447E9F: _mesa_store_teximage (texstore.c:1125)
+	   by 0x3543D9BA: _mesa_get_fallback_texture (texobj.c:1056)
+	   by 0x35443E1E: UnknownInlinedFun (texstate.c:562)
+	   by 0x35443E1E: update_program_texture_state (texstate.c:587)
+	   by 0x35443E1E: UnknownInlinedFun (texstate.c:726)
+	   by 0x35443E1E: _mesa_update_texture (texstate.c:757)
+	   by 0x35420809: _mesa_update_state_locked (state.c:430)
+	   by 0x35420ED0: _mesa_update_state (state.c:504)
+	   by 0x3535BF87: _mesa_Clear (clear.c:172)
+	   by 0x546214F: spice_egl_update_display (spice-widget-egl.c:514)
+
+	32,768 bytes in 1 blocks are definitely lost in loss record 9,864 of 9,882
+	   at 0x35B19E40: drm_intel_gem_bo_map (intel_bufmgr_gem.c:1454)
+	   by 0x35683E3C: intel_batchbuffer_reset (intel_batchbuffer.c:68)
+	   by 0x35684052: brw_new_batch (intel_batchbuffer.c:164)
+	   by 0x35684052: _intel_batchbuffer_flush.part.2 (intel_batchbuffer.c:397)
+	   by 0x3568853B: can_write_oacontrol (intel_extensions.c:153)
+	   by 0x3568853B: intelInitExtensions (intel_extensions.c:279)
+	   by 0x35651380: brwCreateContext (brw_context.c:875)
+	   by 0x35602720: driCreateContextAttribs (dri_util.c:426)
+	   by 0xF0C48B1: dri2_create_context (egl_dri2.c:1072)
+	   by 0xF0BE727: eglCreateContext (eglapi.c:638)
+	   by 0x5461D27: spice_egl_init (spice-widget-egl.c:256)
+	   by 0x545B885: drawing_area_realize (spice-widget.c:581)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+	   by 0xB443A40: signal_emit_unlocked_R (gsignal.c:3629)
+
+	32,768 bytes in 1 blocks are definitely lost in loss record 9,865 of 9,882
+	   at 0x35B19E40: drm_intel_gem_bo_map (intel_bufmgr_gem.c:1454)
+	   by 0x35683E3C: intel_batchbuffer_reset (intel_batchbuffer.c:68)
+	   by 0x35684052: brw_new_batch (intel_batchbuffer.c:164)
+	   by 0x35684052: _intel_batchbuffer_flush.part.2 (intel_batchbuffer.c:397)
+	   by 0x356887F3: can_do_pipelined_register_writes (intel_extensions.c:88)
+	   by 0x356887F3: intelInitExtensions (intel_extensions.c:338)
+	   by 0x35651380: brwCreateContext (brw_context.c:875)
+	   by 0x35602720: driCreateContextAttribs (dri_util.c:426)
+	   by 0xF0C48B1: dri2_create_context (egl_dri2.c:1072)
+	   by 0xF0BE727: eglCreateContext (eglapi.c:638)
+	   by 0x5461D27: spice_egl_init (spice-widget-egl.c:256)
+	   by 0x545B885: drawing_area_realize (spice-widget.c:581)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+	   by 0xB443A40: signal_emit_unlocked_R (gsignal.c:3629)
+
+	98,304 bytes in 3 blocks are definitely lost in loss record 9,872 of 9,882
+	   at 0x35B19E40: drm_intel_gem_bo_map (intel_bufmgr_gem.c:1454)
+	   by 0x35683E3C: intel_batchbuffer_reset (intel_batchbuffer.c:68)
+	   by 0x35684052: brw_new_batch (intel_batchbuffer.c:164)
+	   by 0x35684052: _intel_batchbuffer_flush.part.2 (intel_batchbuffer.c:397)
+	   by 0x3564F834: intel_glFlush (brw_context.c:259)
+	   by 0xF0C3DA0: dri2_make_current (egl_dri2.c:1189)
+	   by 0xF0BAB1B: eglMakeCurrent (eglapi.c:703)
+	   by 0x546274E: spice_widget_init_egl_win (spice-widget-egl.c:316)
+	   by 0x546274E: spice_egl_realize_display (spice-widget-egl.c:333)
+	   by 0x545B89F: drawing_area_realize (spice-widget.c:586)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+	   by 0xB443A40: signal_emit_unlocked_R (gsignal.c:3629)
+	   by 0xB44C92E: g_signal_emit_valist (gsignal.c:3385)
+	   by 0xB44CC51: g_signal_emit (gsignal.c:3441)
+
+	131,072 bytes in 4 blocks are definitely lost in loss record 9,874 of 9,882
+	   at 0x35B19E40: drm_intel_gem_bo_map (intel_bufmgr_gem.c:1454)
+	   by 0x35683E3C: intel_batchbuffer_reset (intel_batchbuffer.c:68)
+	   by 0x356848E8: intel_batchbuffer_init (intel_batchbuffer.c:45)
+	   by 0x35651337: brwCreateContext (brw_context.c:848)
+	   by 0x35602720: driCreateContextAttribs (dri_util.c:426)
+	   by 0xF0C48B1: dri2_create_context (egl_dri2.c:1072)
+	   by 0xF0BE727: eglCreateContext (eglapi.c:638)
+	   by 0x5461D27: spice_egl_init (spice-widget-egl.c:256)
+	   by 0x545B885: drawing_area_realize (spice-widget.c:581)
+	   by 0xB431784: g_closure_invoke (gclosure.c:804)
+	   by 0xB443A40: signal_emit_unlocked_R (gsignal.c:3629)
+	   by 0xB44C92E: g_signal_emit_valist (gsignal.c:3385)
+
+	1,080,655 (284 direct, 1,080,371 indirect) bytes in 1 blocks are
+	definitely lost in loss record 9,881 of 9,882
+	   at 0x4C2A988: calloc (vg_replace_malloc.c:711)
+	   by 0x355A2221: ralloc_size (ralloc.c:113)
+	   by 0x355A227D: rzalloc_size (ralloc.c:134)
+	   by 0x355A2BEE: ra_alloc_reg_set (register_allocate.c:196)
+	   by 0x356D79AA: brw_alloc_reg_set(brw_compiler*, int) (brw_fs_reg_allocate.cpp:159)
+	   by 0x356D817D: brw_fs_alloc_reg_sets (brw_fs_reg_allocate.cpp:305)
+	   by 0x356FDACC: brw_compiler_create (brw_shader.cpp:84)
+	   by 0x35691995: intelInitScreen2 (intel_screen.c:1495)
+	   by 0x35602A5E: driCreateNewScreen2 (dri_util.c:144)
+	   by 0xF0C547B: dri2_create_screen (egl_dri2.c:674)
+	   by 0xF0C808F: dri2_initialize_x11_dri3 (platform_x11.c:1303)
+	   by 0xF0C808F: dri2_initialize_x11 (platform_x11.c:1464)
+	   by 0xF0C18FE: _eglMatchAndInitialize (egldriver.c:261)
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-03-29  Pavel Grunt  <pgrunt@redhat.com>
+
+	doc: Remove dropped functions
+	Dropped in 70a00b8fcc2ca85d3601f6ac4895f906f9032e77
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	widget: Avoid combining ternary with another operators
+	Logical operators like "&&" has higher precedency than "?:".
+	Readiness of SpiceDisplay was wrongly determined due to missing
+	parentheses around the ternary operator.
+
+	Fixes:
+	https://bugs.freedesktop.org/show_bug.cgi?id=94738
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-03-29  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	usb: fix build, missing ')'
+
+2016-03-24  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	usb device widget: don't try to disconnect on failed connect
+	When you try to redirect a usb device to the guest and it fails, we
+	uncheck the checkbox for this device. This causes the 'clicked' signal
+	to be emitted, which causes us to try to disconnect the device (which is
+	not currently connected, since the connect operation failed).
+
+	When we try to disconnect an unconnected device, the device manager
+	leaks memory and gets left in an inconsistent state because we allocate
+	the task data, call _set_redirecting(self, TRUE) and then return early
+	with the following warning printed to the terminal:
+
+	(lt-spicy:4638): GSpice-CRITICAL **: spice_usbredir_channel_disconnect_device_async: assertion 'channel != NULL' failed
+
+	To avoid this, disable signal handlers for the checkbox 'clicked'
+	signal while we're changing the checkbox state in response to a
+	connection error. In addition, add an additional check to
+	spice_usb_device_manager_disconnect_device_async() to ensure that the
+	passed device is actually connected.
+
+	SpiceUsbDeviceManager: propagate errors from sub-tasks
+	_connect_device_async_cb() just turned TRUE unconditionally even if the
+	sub-task had failed. Instead, introduce a
+	_spice_usb_device_manager_connect_device_finish() function which passes
+	up the result of the subtask.
+
+2016-03-24  Dmitry Fleytman  <dfleytma@redhat.com>
+
+	UsbDeviceManager: Deprecate synchronous disconnection method
+	Asynchronous disconnection should be used instead.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-03-24  Kirill Moizik  <kmoizik@redhat.com>
+
+	UsbDeviceWidget: Use asynchronous disconnect API
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	UsbDeviceWidget: Consider asynchronous redirection flows
+	Gray out redirection controls while there are
+	asynchronous redirection flows in progress.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	UsbDeviceWidget: Show info bar during redirection flows
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	usbredir: Disconnect USB device asynchronously
+	Reviewed-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	UsbDeviceManager: Track device disconnection operations in progress
+	During device disconnection, unwanted hotplug events may happen.
+	We need to ignore those therefore we track disconnection operations
+	in progress.
+
+	See also comment to commit
+	"Do not process USB hotplug events while redirection is in progress"
+	that introduces corresponding filtering out logic.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	UsbDeviceManager: Implement asynchronous disconnect device flow
+	This commit introduces functions for asynchronous disconnection flows.
+	Following commits will make use of those.
+
+	Thread safety is ensured the same way it was done for connection
+	flow in previous commits. Disconnect logic is protected by the same
+	locks that protect connect/usbredir/channel management logic.
+
+	UsbDeviceManager: Track device redirection operations in progress
+	During device connection, unwanted hotplug events may happen.
+	We need to ignore those therefore we track redirection operations
+	in progress.
+
+	See also comment to commit
+	"Do not process USB hotplug events while redirection is in progress"
+	that introduces corresponding filtering out logic.
+
+	usbredir: Spawn a different thread for device redirection flow
+	On Windows when using usbdk, opening and closing USB device handle,
+	i.e. calling libusb_open()/libusb_unref_device() can block for a few
+	seconds (3-5 second more specifically on patch author's HW).
+
+	libusb_open() is called by spice_usbredir_channel_open_device().
+
+	libusb_unref_device() is called implicitly via
+	usbredirhost_set_device(..., NULL) from
+	spice_usbredir_channel_disconnect_device().
+
+	Both these calls happen on the main thread. If it blocks,
+	this causes the UI to freeze.
+
+	This commit makes sure libusb_open() is called from a different
+	thread to avoid blocking the mainloop when usbdk is used.
+
+	Following commits also move usbredirhost_set_device(..., NULL) call
+	to separate threads.
+
+	Since this commit introduces additional execution contexts running in
+	parallel to the main thread there are thread safety concerns to be secured.
+	Mainly there are 3 types of objects accessed by newly introduced threads:
+	  1. libusb contexts
+	  2. usbredir context
+	  3. redirection channels
+
+	Fortunately libusb accesses are either thread safe or already
+	performed by a separate thread and protected by locks as needed.
+
+	As for channels and usbredir, in order to achieve thread safety
+	additional locks were introduced by previous patches
+	in preparation to adding asynchronous contexts:
+
+	1. Channel objects data accesses from different threads protected with a
+	   new lock (device_connect_mutex);
+	2. Handling usbredir messages protected by the same new lock in order to
+	   ensure there are no messages processing flows in progress when device gets
+	   connected or disconnected.
+
+	usbredir: Protect data accessed by asynchronous redirection flows
+	This commit adds locking to ensure thread safety required
+	after start/stop redirection flows moved to separate threads.
+	This is done in preparation to following commits that
+	will introduce actual multithreaded access to corresponding
+	routines.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	GUdevClient: Do not process USB hotplug events while redirection is in progress
+	USB redirection flow on Windows includes a number of reset requests issued
+	to the port that hosts the device deing redirected.
+
+	Each port reset emulates device removal and reinsertion and produces
+	corresponding hotplug events and a number of device list updates on
+	different levels of USB stack and USB redirection engine.
+
+	As a result, queriyng USB device list performed by spice-gtk's hotplug
+	event handler may return inconsistent results if performed in parallel
+	to redirection flow.
+
+	This patch suppresses handling of USB hotplug events during redirection
+	and injects a simulated hotplug event after redirection completion
+	in order to properly process real device list changes in case they
+	happened during the redirection flow.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	win-usb-dev: Track device redirection operations in progress
+	This commit introduces redirecting property of GUdevClient
+
+	This property indicates when a redirection operation
+	is in progress on a device. It's set back to FALSE
+	once the device is fully redirected to the guest.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	usbredir: Introduce mutex for device (dis)connection
+	This commit introduces channel mutex to allow usage of
+	channel objects in mutithreaded environments.
+
+	This mutex will be used by future commits to protect
+	thread unsafe usbredir functions and data structures.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-03-24  Dmitry Fleytman  <dmitry@daynix.com>
+
+	win-usb-dev: Fix device (un)plug notification handler
+	This patch fixes device list change notification handing
+	logic for cases when more than one device being plugged
+	or unplugged simultaneously.
+
+	The simplest way to reproduce the problematic scenario
+	is (un)plugging of a usb HUB with a few devices inserted.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	usb-dev-manager: Fix cbinfo leak in case of abnormal return
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	win-usbredir: Use UsbDk backend when available
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	win-usbredir: Do not use UsbClerk for non-WinUsb backends
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	win-usbredir: Move installer interaction logic to separate functions
+	This is a refactoring done in preparation for the next commits.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	usbdk: Load hide rules for auto-redirected devices
+	Hide rules order UsbDk to avoid showing specific USB
+	devices to Windows PnP manager.
+
+	Spice-gtk loads hide rules for devices that should be
+	automatically redirected on connection to prevent Windows
+	from showing "New Hardware Found" wizard window for USB
+	devices that do not have driver on the local system.
+
+	win-usbredir: Only match USB devices by VID:PID when WinUsb used
+	In other cases match devices by BUS:ADDR.
+
+	This commit introduces use_usbclerk flag which is set TRUE
+	unconditionally for Windows builds for now. Next patches
+	will introduce UsbDk backend integrartion which will set
+	this flag in accordance to UsbDk presence on the system.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-03-24  Christophe Fergeau  <cfergeau@redhat.com>
+
+	Add SpiceUsbDeviceManager parameter to device comparison functions
+	This additional parameter is currently unused, but this is in
+	preparation for the next commits.
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-03-24  Dmitry Fleytman  <dmitry@daynix.com>
+
+	win-usbredir: Introduce UsbDk wrapper
+	Introduce UsbDk API definitions and binding code.
+
+	UsbDk API DLL is loaded dynamically and wrapped by
+	a thin glue code layer. This approach was chosen in
+	order to make spice-gtk functional without UsbDk
+	installed.
+
+	Next patches will introduce dynamic backend selection
+	logic, i.e. spice-gtk will try to use UsbDk by
+	default and fallback to the old WinUsb/usbclerk
+	scheme in case UsbDk is not available.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-03-24  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	widget: modify update-area to not require primary surface
+	If egl display is enabled, use GL scanout geometry to check intersection
+	with the monitor area. This solves displaying GL display without
+	software canvas (currently d->area is empty and gl drawing fails)
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	main: don't update display timer for unchanged config
+	With virgl, set_monitor_ready() may be called each time the scanout is
+	updated to set the monitor area. This will call
+	spice_main_update_display(), and keep the timer postponed even if the
+	monitor configuration didn't change. Treat unchanged configuration as a
+	no-op and keep configuration timer unchanged. This fixes monitor
+	autoconfig with virgl (when the display is regularly updated).
+
+	It also solves/avoids problems with a guest running on wayland when the
+	"resize-guest" property is TRUE.
+
+	Fixes:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1266484
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	widget: update d->ready based on scanout image available
+	d->ready is updated based on monitor area & canvas. In case of GL
+	rendering, update it based on monitor area & scanout and add check
+	before drawing update.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	egl: check and update scanout after egl init
+	Once the egl/GL context are initialized, check if there is a scanout to
+	associate to display widget. This solves races when scanout update is
+	happening before the egl/GL context is ready.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	widget: make gl-scanout and update-monitor-area privately exported
+	The following changes will call these functions from spice-widget-egl.c
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	display: return NULL in spice_display_get_gl_scanout()
+	If there is no valid scanout, return NULL.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	widget: enable egl before updating scanout
+	The GLArea is realized lazily, when it is made visible in
+	set_egl_enabled(). The egl context is initialized once the GLArea is
+	realized. Enable egl before updating the scanout.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	egl: check context is ready
+	Add a new GL status field to check if the GL context is ready. This
+	helps debugging races where GL is called before the context is ready.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	widget: remove superflous WIN32 check
+	The egl call is already inside a X11 conditional block.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-03-24  Victor Toso  <victortoso@redhat.com>
+
+	channel-main: fix leak on volume-sync
+	7 bytes in 1 blocks are definitely lost in loss record 128 of 10,009
+	   at 0x4C2A988: calloc (vg_replace_malloc.c:711)
+	   by 0xB6C3200: g_malloc0 (gmem.c:124)
+	   by 0x740BD5F: audio_playback_volume_info_cb (channel-main.c:1216)
+	   by 0xB11D488: g_task_return_now (gtask.c:1107)
+	   by 0xB11DCBD: g_task_return (gtask.c:1165)
+	   by 0x742D1F5: spice_pulse_complete_all_async_tasks (spice-pulse.c:1034)
+	   by 0x8B6B57C: ext_stream_restore_read_cb (ext-stream-restore.c:141)
+	   by 0x10BA63C0: run_action (pdispatch.c:284)
+	   by 0x10BA6722: pa_pdispatch_run (pdispatch.c:337)
+	   by 0x8B6520D: pstream_packet_callback (context.c:338)
+	   by 0x10BA8D7E: do_read (pstream.c:879)
+	   by 0x10BAB39A: do_pstream_read_write (pstream.c:189)
+
+	7 bytes in 1 blocks are definitely lost in loss record 129 of 10,009
+	   at 0x4C2A988: calloc (vg_replace_malloc.c:711)
+	   by 0xB6C3200: g_malloc0 (gmem.c:124)
+	   by 0x740BFBF: audio_record_volume_info_cb (channel-main.c:1273)
+	   by 0xB11D488: g_task_return_now (gtask.c:1107)
+	   by 0xB11DCBD: g_task_return (gtask.c:1165)
+	   by 0x742D1F5: spice_pulse_complete_all_async_tasks (spice-pulse.c:1034)
+	   by 0x8B6B57C: ext_stream_restore_read_cb (ext-stream-restore.c:141)
+	   by 0x10BA63C0: run_action (pdispatch.c:284)
+	   by 0x10BA6722: pa_pdispatch_run (pdispatch.c:337)
+	   by 0x8B6520D: pstream_packet_callback (context.c:338)
+	   by 0x10BA8D7E: do_read (pstream.c:879)
+	   by 0x10BAB39A: do_pstream_read_write (pstream.c:189)
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-03-23  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	widget: use allocation instead of window size
+	Since spice-gtk 57df040cc, the SpiceDisplay no longer forces its own
+	window. Get allocation instead of window size.  This fixes a "top
+	border" issue in spicy with gtk+ >= 3.19.8.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	widget: offset draw updates by widget allocation if necessary
+	According to gtk_widget_queue_draw_area() documentation:
+
+	"The region here is specified in widget coordinates. Widget coordinates
+	are a bit odd; for historical reasons, they are defined as
+	widget->window coordinates for widgets that return TRUE for
+	gtk_widget_get_has_window(), and are relative to widget->allocation.x ,
+	widget->allocation.y otherwise."
+
+	Since spice-gtk 57df040cc, the SpiceDisplay no longer forces its own
+	window. During gtk+ 3.19.8, gtk stack also no longer use its own
+	window (commit 9d0e8401). In order to make drawing update resilient to
+	such changes, add a function applying offset if necessary.
+
+	This solves drawing glitches and perceived slowness with spice-gtk git
+	and gtk+ >= 3.19.8.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-03-23  Pavel Grunt  <pgrunt@redhat.com>
+
+	spicy: Remove configure-event callback
+	It is a leftover - see "Remove GnomeRR code"
+	commit 30986505ba6041c293c38cb4b7f4b618a59f4716
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-03-23  Frediano Ziglio  <fziglio@redhat.com>
+
+	Avoid to access array with negative numbers
+
+2016-03-22  Fabiano Fidêncio  <fidencio@redhat.com>
+
+	vmcstream,gtask: Do idle ourself instead of leaving it to GTask's heuristic
+	Seems that GTask heuristic only makes sense in a non-coroutine case.
+	After opening a bug[0] on spice-gtk and a few discussions in the mailing
+	list, seems that is completely fine for coroutine code to deal with the
+	idle explicitly.
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	vmcstream,gtask: Fix crash when trying to use webdav
+	Don't try to get the cancellable from a task that is, for sure (ensured
+	by us), NULL. See the backtrace:
+
+	 #0  0x00007ffff29cf250 in g_task_get_cancellable () at /lib64/libgio-2.0.so.0
+	 #1  0x00007ffff78a9012 in spice_vmc_input_stream_read_all_async (stream=<optimized out>, buffer=0x7070f8, count=8, io_priority=<optimized out>, cancellable=0x7fffcc00a470, callback=0x7ffff788c190 <client_read_cb>, user_data=0x707b30) at vmcstream.c:187
+	 #2  0x00007ffff788c0ab in start_demux (self=0x707b30) at channel-webdav.c:498
+	 #3  0x00007ffff2700578 in g_closure_invoke () at /lib64/libgobject-2.0.so.0
+	 #4  0x00007ffff27135f0 in signal_emit_unlocked_R () at /lib64/libgobject-2.0.so.0
+	 #5  0x00007ffff271c43c in g_signal_emit_valist () at /lib64/libgobject-2.0.so.0
+	 #6  0x00007ffff788acca in emit_main_context (opaque=0x7fffbfffe880) at gio-coroutine.c:200
+	 #7  0x00007ffff242bab3 in g_main_context_dispatch () at /lib64/libglib-2.0.so.0
+	 #8  0x00007ffff242be60 in g_main_context_iterate.isra () at /lib64/libglib-2.0.so.0
+	 #9  0x00007ffff242c182 in g_main_loop_run () at /lib64/libglib-2.0.so.0
+	 #10 0x0000000000405df6 in main (argc=<optimized out>, argv=<optimized out>) at spicy.c:1897
+
+	It was pointed out during the review and, somehow, missed :-\
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-03-22  Jeremy White  <jwhite@codeweavers.com>
+
+	Include gdk/gdkwayland.h anytime GDK_WINDOWING_WAYLAND is defined.
+	A specific GTK version check is not appropriate for this particular include.
+	This fixes compilation on Debian Jessie.
+
+2016-03-22  Pavel Grunt  <pgrunt@redhat.com>
+
+	Remove extra checks before g_cancellable_disconnect()
+	If cancellable is NULL or handler_id is 0 the function does nothing.
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	usb-device-manager: Remove invalid return annotation
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-03-22  snir sheriber  <ssheribe@redhat.com>
+
+	usbredir_handle_msg: rename data to err_data
+	To better reflect what this variable is used for and change the declare
+	location such that it will be declared only if it should
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-03-21  Fabiano Fidêncio  <fidencio@redhat.com>
+
+	mingw: Fix build failure due to epoxy/egl.h header
+	epoxy/egl.h header is not provided by mingw-epoxy package.
+	Let's avoid egl usage when building using mingw then.
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	channel-usbredir: Fix crash due to a Task returning earlier than expected
+	g_task_return_error() has been completing the task immediately, not
+	cleaning up/setting up the device state to STATE_DISCONNECTED. It's been
+	causing a double free when trying to redirect a device without having
+	the ACL permissions for doing it. See the backtrace:
+
+	 #0  0x00007ffff24dc07d in g_type_check_instance_is_fundamentally_a (type_instance=type_instance@entry=0x14779d0, fundamental_type=fundamental_type@entry=80) at gtype.c:4032
+	 #1  0x00007ffff24bc447 in g_object_unref (_object=0x14779d0) at gobject.c:3076
+	 #2  0x00007ffff7bafc2a in connect_cb (gobject=0x87d9a0 [SpiceUsbDeviceManager], res=0x96f830, user_data=0x143e0e0)
+	     at usb-device-widget.c:485
+	 #3  0x00007ffff277f5a3 in g_task_return_now (task=0x96f830 [GTask]) at gtask.c:1106
+	 #4  0x00007ffff277fc4e in g_task_return (task=0x96f830 [GTask], type=<optimized out>) at gtask.c:1164
+	 #5  0x00007ffff786c277 in spice_usb_device_manager_channel_connect_cb (gobject=0x917940 [SpiceUsbredirChannel], channel_res=0x96f900, user_data=0x96f830) at usb-device-manager.c:1094
+	 #6  0x00007ffff277f5a3 in g_task_return_now (task=0x96f900 [GTask]) at gtask.c:1106
+	 #7  0x00007ffff277fc4e in g_task_return (task=0x96f900 [GTask], type=<optimized out>) at gtask.c:1164
+	 #8  0x00007ffff786699c in spice_usbredir_channel_open_acl_cb (gobject=0xa73b00 [SpiceUsbAclHelper], acl_res=0x96f9d0, user_data=0x917940) at channel-usbredir.c:300
+	 #9  0x00007ffff277f5a3 in g_task_return_now (task=0x96f9d0 [GTask]) at gtask.c:1106
+	 #10 0x00007ffff277fc4e in g_task_return (task=0x96f9d0 [GTask], type=<optimized out>) at gtask.c:1164
+	 #11 0x00007ffff27804d0 in g_task_return_new_error (task=0x96f9d0 [GTask], domain=<optimized out>, code=<optimized out>, format=<optimized out>) at gtask.c:1744
+	 #12 0x00007ffff786eade in cb_out_watch (channel=0x1488740, cond=G_IO_IN, user_data=0xa73b00) at usb-acl-helper.c:128
+	 #13 0x00007ffff21b8e3a in g_main_context_dispatch (context=0x647390) at gmain.c:3154
+	 #14 0x00007ffff21b8e3a in g_main_context_dispatch (context=context@entry=0x647390) at gmain.c:3769
+	 #15 0x00007ffff21b91d0 in g_main_context_iterate (context=0x647390, block=block@entry=1, dispatch=dispatch@entry=1, self=<optimized out>) at gmain.c:3840
+	 #16 0x00007ffff21b94f2 in g_main_loop_run (loop=0x13d1ae0) at gmain.c:4034
+	 #17 0x00007ffff3ca5440 in gtk_dialog_run () at /lib64/libgtk-3.so.0
+	 #18 0x0000000000406a18 in menu_cb_select_usb_devices (action=0x9d62f0 [GtkAction], data=0x69aef0) at spicy.c:394
+	 #22 0x00007ffff24d28ff in <emit signal ??? on instance 0x9d62f0 [GtkAction]> (instance=<optimized out>, signal_id=<optimized out>, detail=<optimized out>) at gsignal.c:3439
+	     #19 0x00007ffff24b77a5 in g_closure_invoke (closure=0xa0d0c0, return_value=return_value@entry=0x0, n_param_values=1, param_values=param_values@entry=0x7fffffffcf70, invocation_hint=invocation_hint@entry=0x7fffffffcef0) at gclosure.c:801
+	     #20 0x00007ffff24c9851 in signal_emit_unlocked_R (node=node@entry=0x63fc10, detail=detail@entry=0, instance=instance@entry=0x9d62f0, emission_return=emission_return@entry=0x0, instance_and_params=instance_and_params@entry=0x7fffffffcf70) at gsignal.c:3627
+	     #21 0x00007ffff24d2530 in g_signal_emit_valist (instance=<optimized out>, signal_id=<optimized out>, detail=<optimized out>, var_args=var_args@entry=0x7fffffffd130) at gsignal.c:3383
+	 #23 0x00007ffff3bc23b0 in _gtk_action_emit_activate () at /lib64/libgtk-3.so.0
+	 #27 0x00007ffff24d28ff in <emit signal ??? on instance 0x9a8730 [GtkImageMenuItem]> (instance=<optimized out>, signal_id=<optimized out>, detail=<optimized out>) at gsignal.c:3439
+	     #24 0x00007ffff24b77a5 in g_closure_invoke (closure=closure@entry=0x6607d0, return_value=return_value@entry=0x0, n_param_values=1, param_values=param_values@entry=0x7fffffffd3f0, invocation_hint=invocation_hint@entry=0x7fffffffd370) at gclosure.c:801
+	     #25 0x00007ffff24c938c in signal_emit_unlocked_R (node=node@entry=0x661050, detail=detail@entry=0, instance=instance@entry=0x9a8730, emission_return=emission_return@entry=0x0, instance_and_params=instance_and_params@entry=0x7fffffffd3f0) at gsignal.c:3557
+	     #26 0x00007ffff24d2530 in g_signal_emit_valist (instance=<optimized out>, signal_id=<optimized out>, detail=<optimized out>, var_args=var_args@entry=0x7fffffffd5b0) at gsignal.c:3383
+	 #28 0x00007ffff3e7094e in gtk_widget_activate () at /lib64/libgtk-3.so.0
+	 #29 0x00007ffff3d4e4f6 in gtk_menu_shell_activate_item () at /lib64/libgtk-3.so.0
+	 #30 0x00007ffff3d4e824 in gtk_menu_shell_button_release () at /lib64/libgtk-3.so.0
+	 #31 0x00007ffff3d30fda in _gtk_marshal_BOOLEAN__BOXEDv () at /lib64/libgtk-3.so.0
+	 #32 0x00007ffff24b79d4 in _g_closure_invoke_va (closure=closure@entry=0x644d10, return_value=return_value@entry=0x7fffffffd900, instance=instance@entry=0x80faa0, args=args@entry=0x7fffffffd9d0, n_params=<optimized out>, param_types=0x644d40) at gclosure.c:864
+	 #33 0x00007ffff24d1dd3 in g_signal_emit_valist (instance=0x80faa0, signal_id=<optimized out>, detail=0, var_args=var_args@entry=0x7fffffffd9d0) at gsignal.c:3292
+	 #34 0x00007ffff24d28ff in g_signal_emit (instance=<optimized out>, signal_id=<optimized out>, detail=<optimized out>) at gsignal.c:3439
+	 #35 0x00007ffff3e6e4bc in gtk_widget_event_internal () at /lib64/libgtk-3.so.0
+	 #36 0x00007ffff3d2e34e in propagate_event () at /lib64/libgtk-3.so.0
+	 #37 0x00007ffff3d300fc in gtk_main_do_event () at /lib64/libgtk-3.so.0
+	 #38 0x00007ffff38a8e92 in gdk_event_source_dispatch () at /lib64/libgdk-3.so.0
+	 #39 0x00007ffff21b8e3a in g_main_context_dispatch (context=0x647390) at gmain.c:3154
+	 #40 0x00007ffff21b8e3a in g_main_context_dispatch (context=context@entry=0x647390) at gmain.c:3769
+	 #41 0x00007ffff21b91d0 in g_main_context_iterate (context=0x647390, block=block@entry=1, dispatch=dispatch@entry=1, self=<optimized out>) at gmain.c:3840
+	 #42 0x00007ffff21b94f2 in g_main_loop_run (loop=0x6e2730) at gmain.c:4034
+	 #43 0x000000000040b2f9 in main (argc=1, argv=0x7fffffffde48) at spicy.c:1920
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-03-18  Pavel Grunt  <pgrunt@redhat.com>
+
+	Adjust to Gtk+ 3.10
+	Dependency since f9a1aad85fcc76dd76c454b51fbce5e07c9b145f
+
+	Remove unneeded GTK_CHECK_VERSION guards
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	Adjust to GLib 2.36
+	Dependency since 8693e7d3f7de1ff102082212fa6e35fb1a252ef7
+
+	Remove glib-compat files and most of GLIB_CHECK_VERSION guards
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	Move strtok_r from glib-compat to spice-uri
+	It is not glib specific and it is only used in spice-uri
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	spice-util: Fix alignment
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	usb-acl-helper: Remove extra check for NULL
+	g_cancellable_cancel() and g_clear_object() can handle it
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-03-17  Pavel Grunt  <pgrunt@redhat.com>
+
+	spicy: s/Automagic/Automatic/
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	spice-display: Remove auto-clipboard notify
+	It was used to notify the (deprecated) auto-clipboard property of
+	the SpiceDisplay everytime the SpiceGtkSession emits its auto-clipboard
+	notify.
+
+	The commit 70a00b8fcc2ca85d3601f6ac4895f906f9032e77 removed the property
+	from SpiceDisplay causing a runtime warning:
+
+	GLib-GObject-WARNING **: g_object_notify: object class 'SpiceDisplay' has no property named 'auto-clipboard'
+	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
+
+	display: Lower level of warning for empty monitor config
+	It is a valid case when a guest requests to turn off monitors, eg:
+	 xrandr --output Virtual-0 --off
+
+	Related:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1061942
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-03-15  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	build-sys: fix 'Only <spice-client.h> can be included directly' warning
+	Tests should be allowed to include directly private headers. Set
+	__SPICE_CLIENT_H_INSIDE__ where necessary or include spice-client.h
+	where possible.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	Lower gtk+ requirement to 3.10
+	Make GtkGlArea optional allows to lower gtk+ requirement to
+	3.10 (required for GtkStack). However, gl display is unsupported on
+	wayland with gtk+ < 3.16.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	build-sys: remove epoxy from pc requires
+	libepoxy doesn't need to figure in spice-gtk pkg-config requires, it's a
+	private dependency.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-03-14  Fabiano Fidêncio  <fidencio@redhat.com>
+
+	wocky-http-proxy: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	win-usb-driver-install: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	vmcstream: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	usb-device-manager: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	usb-acl-helper: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	spice-pulse: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	spice-gstaudio: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	spice-channel: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	smartcard-manager: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	channel-usbredir: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	channel-port: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	channel-main: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	channel-base: Use GTask instead of GSimpleAsyncResult
+	Instead of using GSimpleAsyncResult, use the new GTask API, which is
+	much more straightforward.
+	For using the new GTask API, let's bump GIO (part of GLib) dependency
+	version to 2.36, which is safe based on major distro support:
+	- Debian Jessie: glib-2.42
+	- RHEL-7.1: glib-2.40
+	- SLES12: glib-2.38
+	- Ubuntu LTS 14.04: glib-2.40
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-03-14  Marc-André Lureau  <marcandre.lureau@gmail.com>
+
+	gtk: add GtkGLArea
+	GtkGLArea is the proper modern way to have opengl in an gtk+
+	application. Unfortunately, it may use various backends and interfaces
+	to initialize it, but dmabuf image sharing requires egl atm.
+
+	This patch keeps using our egl setup on X11, while it uses gtkglarea on
+	known gdk backend based on egl, such as the wayland one. This brings
+	wayland support for local gl to spice-gtk.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: use GtkStack
+	Move the GtkDrawingArea in a GtkStack, so other widgets can be switched
+	to for the display: the next patch adds a GtkGLArea for an opengl
+	rendering. One can imagine other display widgets to show text etc..
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: require gtk+ 3.16
+	3.16 is the minimal version for GtkGLArea widget, used in following
+	patches.
+
+	Drop conditional epoxy support, as it is now required by gtk+.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: drop deprecated stuff from spice-gtk
+	Breaking ABI is a good time to remove deprecated code.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	Drop GTK+ 2.0
+	Not so many systems require gtk+ 2.0 these days, let's move on.
+
+	This drops the old python bindings (non-gir based), and the
+	unsteady/experimental gtk2-only XShm support.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: make SpiceGrabSequence private
+	Do not leak internals of SpiceGrabSequence in public headers. This makes also
+	the class final, which let us extend more easily without fear of breaking ABI.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: make SpiceUsbDeviceWidget private
+	Do not leak internals of SpiceUsbDeviceWidget in public headers. This makes also
+	the class final, which let us extend more easily without fear of breaking ABI.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: make SpiceGtkSession private
+	Do not leak internals of SpiceGtkSession in our headers. This makes also
+	the class final, which let us extend more easily without fear of
+	breaking ABI.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	gtk: make SpiceDisplay private
+	Do not leak internals of SpiceDisplay in our headers. This makes also
+	the class final, which let us extend more easily without fear of
+	breaking ABI.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+	build-sys: bump spice-gtk current version info
+	The following patches need to break the ABI (in particular the parent of the
+	SpiceDisplay widget).
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
 2016-03-11  Marc-André Lureau  <marcandre.lureau@gmail.com>
 
 	build-sys: fix make check when polkit not available
