@@ -4,17 +4,17 @@
 #
 Name     : spice-gtk
 Version  : 0.32
-Release  : 6
+Release  : 7
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.32.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.32.tar.bz2
 Summary  : SPICE Client GLib 2.0 library
 Group    : Development/Tools
 License  : LGPL-2.1
 Requires: spice-gtk-bin
+Requires: spice-gtk-data
 Requires: spice-gtk-lib
 Requires: spice-gtk-doc
 Requires: spice-gtk-locales
-Requires: spice-gtk-data
 BuildRequires : docbook-xml
 BuildRequires : gettext
 BuildRequires : gobject-introspection
@@ -105,6 +105,7 @@ locales components for the spice-gtk package.
 
 %build
 export LANG=C
+export SOURCE_DATE_EPOCH=1491326859
 %configure --disable-static --with-gtk=3.0
 make V=1  %{?_smp_mflags}
 
@@ -116,6 +117,7 @@ export no_proxy=localhost
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
+export SOURCE_DATE_EPOCH=1491326859
 rm -rf %{buildroot}
 %make_install
 %find_lang spice-gtk
@@ -131,6 +133,9 @@ rm -rf %{buildroot}
 
 %files data
 %defattr(-,root,root,-)
+/usr/lib64/girepository-1.0/SpiceClientGLib-2.0.typelib
+/usr/lib64/girepository-1.0/SpiceClientGtk-3.0.typelib
+/usr/share/gir-1.0/*.gir
 /usr/share/vala/vapi/spice-protocol.vapi
 
 %files dev
@@ -166,11 +171,12 @@ rm -rf %{buildroot}
 /usr/include/spice-client-gtk-3.0/spice-widget.h
 /usr/include/spice-client-gtk-3.0/usb-device-widget.h
 /usr/include/spice-controller/spice-controller.h
-/usr/lib64/*.so
-/usr/lib64/girepository-1.0/SpiceClientGLib-2.0.typelib
-/usr/lib64/girepository-1.0/SpiceClientGtk-3.0.typelib
-/usr/lib64/pkgconfig/*.pc
-/usr/share/gir-1.0/*.gir
+/usr/lib64/libspice-client-glib-2.0.so
+/usr/lib64/libspice-client-gtk-3.0.so
+/usr/lib64/libspice-controller.so
+/usr/lib64/pkgconfig/spice-client-glib-2.0.pc
+/usr/lib64/pkgconfig/spice-client-gtk-3.0.pc
+/usr/lib64/pkgconfig/spice-controller.pc
 
 %files doc
 %defattr(-,root,root,-)
@@ -219,8 +225,13 @@ rm -rf %{buildroot}
 
 %files lib
 %defattr(-,root,root,-)
-/usr/lib64/*.so.*
+/usr/lib64/libspice-client-glib-2.0.so.8
+/usr/lib64/libspice-client-glib-2.0.so.8.5.0
+/usr/lib64/libspice-client-gtk-3.0.so.5
+/usr/lib64/libspice-client-gtk-3.0.so.5.0.0
+/usr/lib64/libspice-controller.so.0
+/usr/lib64/libspice-controller.so.0.0.0
 
-%files locales -f spice-gtk.lang 
+%files locales -f spice-gtk.lang
 %defattr(-,root,root,-)
 
