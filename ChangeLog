@@ -1,3 +1,1133 @@
+2016-10-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	spicy: fix reset of terminal when quit
+	Only restore the terminal if it was actually saved.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	usb: fix libusb_get_active_config_descriptor()
+	I wrongly replaced "assert(!get_active_config())" with
+	"if (!get_active_config())" in the previous commit.
+
+2016-10-07  Snir Sheriber  <ssheribe@redhat.com>
+
+	Avoid compression of isochronous devices
+	Device is considered isochronous if one of its endpoints is
+	defined as isochronous transfer, in that case data transfer
+	over the usbredir channel will not be compressed
+	(it is assumed that there is a strong correlation between
+	isochronous devices and devices which their data is usually
+	compressed)
+
+	E.g.
+	Camera/mic device will usually be recognised as isochronous
+	while storage devices won't
+
+	Message-Id: <1475766822-26809-2-git-send-email-ssheribe@redhat.com>
+
+2016-10-06  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	Update NEWS for 0.33 release
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	build-sys: bump spice-glib version
+	New symbols in spice-glib, bump before release.
+
+	spicy: only watch stdin if testing org.spice.spicy port
+	This fixes starting spicy with a shell in the background with &, spicy
+	would hang in tcsetattr().
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-10-05  Victor Toso  <me@victortoso.com>
+
+	tests: fix -Wall -Wextra compiler warnings
+	With -Wall a few -Wunused-variable and -Wunused-but-set-variable;
+	With -Wextra lots of -Wunused-parameter and a few -Wsign-compare.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-10-03  Victor Toso  <me@victortoso.com>
+
+	tests: set binaries to have 'test' name prefix
+	To follow test-spice-uri and test-file-transfer standard.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-09-14  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget: Inform about transfer failure
+	Call spice_main_file_copy_finish to get result of the transfer
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-09-09  Pavel Grunt  <pgrunt@redhat.com>
+
+	Remove trailing semicolon
+
+2016-09-07  Frediano Ziglio  <fziglio@redhat.com>
+
+	Ignore modifiers messages if no modifiers changed
+	This avoid keep sending modifiers changes if guest is not
+	synchronising the changes.
+
+	I consider this as an improving as this avoids client to try again
+	and again to force synchronisation however this does not prevent
+	every unwanted keystroke insertion which possibly can be a real
+	problem on some configurations.
+
+	For instance if guest do not handle caps lock as the client do
+	if client uses another modifiers (as num lock) this can force
+	inserting virtual caps keypress.
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-09-07  Christophe Fergeau  <cfergeau@redhat.com>
+
+	spicy: fix 'tabled' typo
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-09-02  Pavel Grunt  <pgrunt@redhat.com>
+
+	clipboard: Return early if check_clipboard_size_limits() fails
+	b0a2ff4 "clipboard: Add fixup_clipboard_text helper"
+	mistakenly removed some early returns when text conversion fails for
+	some reason. This commit readds it.
+
+	util: Remove unused GError parameter
+	The parameter is removed from functions:
+	 get_line
+	 spice_convert_newlines
+	 spice_unix2dos
+	 spice_dos2unix
+
+	It was introduced in 75f1ea3ee9c4dbd6c5f27896caee07792bbdbba4
+	but never used
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-09-01  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	Translate file transfer error messages
+	If we are to ever display error messages to a user in a UI, they need to
+	be translated.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-09-01  Pavel Grunt  <pgrunt@redhat.com>
+
+	file-transfer: Add guards to public functions
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	file-transfer: Add documentation for public functions
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-09-01  Christophe Fergeau  <cfergeau@redhat.com>
+
+	clipboard: Use gtk_clipboard_request_text for text data
+	Currently, when the agent asks us for VD_AGENT_CLIPBOARD_UTF8_TEXT data,
+	spice-gtk looks up for the first X11 target which would provide it with
+	UTF8_TEXT data, and uses that for the clipboard request. This means we
+	will use UTF8_STRING as the target for gtk_clipboard_request_contents().
+
+	However, some applications who can copy and paste text do not
+	necessarily support the UTF8_STRING target. This is the case for Motif
+	applications which support the STRING target however. It turns out gtk+
+	also provides a gtk_clipboard_request_text() method which will try
+	several targets (UTF8_TEXT, COMPOUND_TEXT, TEXT), and will ensure the
+	returned string is UTF-8, so we can use that when the agent asks us for
+	some text data.
+
+	This fixes https://bugzilla.redhat.com/show_bug.cgi?id=1348624
+
+	clipboard: Add fixup_clipboard_text helper
+	This makes clipboard_received_cb a bit shorter, and will be useful
+	in the next commit.
+
+2016-09-01  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	Add ability to get sizes from SpiceFileTransferTask
+	If a client is handling multiple SpiceFileTransferTasks at one time,
+	it's not currently possible to provide a single overall progress to the
+	user. The only information that the client can get is the percentage
+	progress. This patch adds two new properties:
+	 - total-bytes: the size of the file transfer task in bytes
+	 - transferred-bytes: the number of bytes already transferred
+
+	This allows a client UI to calculate the combined progress for all
+	ongoing transfer tasks and present it to the user. Two convenience
+	functions were added to retrieve these values:
+	 - spice_file_transfer_task_get_total_bytes()
+	 - spice_file_transfer_task_get_transferred_bytes()
+
+2016-08-30  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	build-sys: remove PKG_PREREQ
+	I added it to make sure AC_SUBST happened, but apparently AC_SUBST
+	happens with very old pkg-config versions too, no need to check
+	pkg-config pkg.m4 version.
+
+2016-08-26  Christophe Fergeau  <cfergeau@redhat.com>
+
+	mouse: Fix pointer grabbing in server mode
+	Trying to click on spice-gtk window while in server mode should result
+	in a pointer grab. This is currently failing, with the cursor wrapping
+	to the top left corner of the window instead without being grabbed.
+
+	This is caused by our use of gtk_event_box_set_above_child(),
+	when clicking on the SpiceWidget, the grab is implicitly taken by
+	the window which is above the event box (which is an internal
+	GtkEventBox input-only GdkWindow). Then when we call gdk_pointer_grab()
+	on the GtkEventBox::window, we get a grab-broken event indicating the
+	grab was transferred from the internal input-only window to
+	GtkEventBox::window (see gtk+ bug
+	https://bugzilla.gnome.org/show_bug.cgi?id=769635#c2 for a detailed
+	explanation).
+
+	This commit ignores grab-broken events when the GdkWindow who got the
+	grab corresponds to the one we called gdk_pointer_grab() on.
+	An alternative would be to call gdk_pointer_grab() on the GdkWindow
+	which received the button-press-event, but the call chain between
+	button_event() and the eventual gdk_pointer_grab() call, so it would be
+	not so elegant to pass the correct GdkWindow all the way.
+
+2016-08-26  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	widget: set keypress-delay to 0 on unix socket
+	There is no strong need for keypress-delay on local connection (not
+	verified: unless the system is heavily loaded, in which case the VM will
+	probably be stuck too and may or not repeat the key when running).
+
+	The benefit of removing keypress-delay is that games or interfaces that
+	require "realtime" responses, such as FPS, are slightly better without
+	the 100ms input delay.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	widget: make set_keypress_delay a function
+	So the widget can call it without going through g_object_set().
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	channel: add read-only socket property
+	Channel users (such as spice widget) may want to know some connection
+	details. Instead of exposing various connection properties, we may as
+	well just have a GSocket property, with a strong warning on usage.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-08-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	build-sys: simplify checking for x11
+	We no longer need the gtk+-quartz/win32 check, however we can simplify
+	the x11 check if building gtk+-x11
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	build-sys: require recent pkg-config
+	So we can drop the AC_SUBST for _CFLAGS & _LIBS variable (since 0.24
+	but there is no clean way to check that before PKG_PREREQ in 0.29,
+	released last year)
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-08-22  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Fix the VideoDecoder queue_frame() documentation
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-08-19  Ian Stakenvicius  <axs@gentoo.org>
+
+	Add missing libX11 reference to build system
+	GTK on its own is not enough to ensure libX11 is properly linked with
+	libspice-client-gtk.  This patch adds X11_LIBS to SPICE_GTK_LIBADD_COMMON
+	(and X11_CFLAGS to a relevant section as well) in src/Makefile.am, and
+	performs an approriate pkg-config based check to determine the correct
+	values in configure.ac when not building for win32 or quartz.
+
+	For more info see http://bugs.gentoo.org/585118
+
+2016-08-19  Frediano Ziglio  <fziglio@redhat.com>
+
+	Add Italian .po file.
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	Initialise gettext library properly
+	This will allow internationalisation to work correctly.
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+2016-08-16  Pavel Grunt  <pgrunt@redhat.com>
+
+	Do not require epoxy for Windows
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	widget: Fix rendering issues with CSD on Windows
+	Replace GDK_WINDOW_HWND by gdk_win32_window_get_impl_hwnd() which gets
+	the HWND directly, without any side effects.
+
+	Related:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1352216
+
+	Acked-by: Fabiano Fidêncio <fabiano@fidencio.org>
+
+2016-08-12  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Create the pipeline at the same time as the GStreamer decoder
+	This lets create_gstreamer_decoder() fail if it cannot create the
+	pipeline it needs, allowing the caller to try fallbacks.
+	This also means the pipeline has the same lifetime as the decoder which
+	makes it possible to remove a check in queue_frame().
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	streaming: Don't crash if the stream creation fails
+	Note that this implies closing the stream before receiving any frame.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	streaming: Don't crash if no frame was received before closing the stream
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-08-12  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	Improve file transfer error messages
+	In preparation for potentially displaying error messages to a user in a
+	UI, I thought I'd improve the messages slightly.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	Fix docs for SpiceFileTransferTask::progress
+	This property actually represents a fractional value from 0 to 1.0, not
+	a percentage between 0 and 100.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-08-11  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Check the stream id in display_update_stream_report() too
+	It's safer and more consistent than assuming the caller has done the
+	check already.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-08-10  Pavel Grunt  <pgrunt@redhat.com>
+
+	vmcstream: Do not disconnect cancellable in coroutine
+	It is disconnected when spice_vmc_input_stream_read_all_finish()
+	is called.
+
+	Silence many warnings appearing with webdav:
+	 GLib-GObject-WARNING **: gsignal.c:2635: instance '0x7fe658015c40' has no handler with id '13555'
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	channel-webdav: Remove extra SpiceWebdavChannel parameter
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-08-10  Victor Toso  <victortoso@redhat.com>
+
+	file-transfer: improve GHashTable with value_destroy_func
+	By using g_hash_table_new_full() we can unref its value which is the
+	SpiceFileTransferTask. This makes the code a little bit simpler as
+	nowhere we use the xfer-task after removing it from hash table.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	file-transfer: increase reference for channel-main
+	SpiceMainChannel uses the SpiceFileTransferTask reference given in the
+	hash table provided by spice_file_transfer_task_create_tasks(). That
+	means SpiceFileTransferTask is not holding a reference for itself but
+	it relies on it due the async calls it provides.
+
+	This patch increases the reference of each SpiceFileTransferTask for
+	the hash table which will be unref'ed by channel-main in
+	file_transfer_operation_task_finished(); the original reference is
+	kept to SpiceFileTransferTask to be freed after the finish signal is
+	emitted on spice_file_transfer_task_close_stream_cb().
+
+	This patch fixes some critical warnings as we have two g_object_unref
+	but only one reference.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	channel-main: make debug helpful in case of failures
+	Debug should come before the g_return_if_fail() otherwise we lose
+	important debug data.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	channel-main: improve code to use FileTransferOperation
+	Since commit b26818d0e00666 we are grouping all transferred files per
+	operation (drag and drop); That leaded to some design flaws in the
+	code. The changes suggested in this patch are (in execution order):
+
+	* On spice_file_transfer_task_read_async()
+	- Passing FileTransferOperation data so in the callback and in further
+	  function calls, we don't need to look for this;
+
+	Note that FileTransferOperation is not freed while any of its
+	SpiceFileTransferTask exists and by design they are never finished
+	while on pending state, so file_xfer_read_async_cb() should have a
+	valid FileTransferOperation pointer.
+
+	* On file_xfer_read_async_cb()
+	- Removed unnecessary variables;
+
+	* On file_xfer_flush_async()
+	- Using SpiceFileTransferTask as parameter which can retrieve the
+	  SpiceMainChannel and the GCancellable;
+	- Using SpiceFileTransferTask as source_object for GTask with
+	  FileTransferOperation as user_data which is helpful for its
+	  callback;
+
+	* On file_xfer_flush_finish() and file_xfer_data_flushed_cb()
+	- Using SpiceFileTransferTask as parameter and source_object check for
+	  GTask
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-transfer: Move initializations to _task_new()
+	This was a request introduced at f6b3b697093a16de to be done after
+	moving the SpiceFileTransferTask code to its own file.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-08-05  Christophe Fergeau  <cfergeau@redhat.com>
+
+	wocky: Pass GTask around instead of ConnectAsyncData
+	Now that the ConnectAsyncData we need is set as GTask data, we can pass
+	around the GTask rather than the ConnectAsyncData instance, and remove
+	the GTask pointer from it. We can get the ConnectAsyncData from the
+	GTask when needed using g_task_get_task_data().
+
+	wocky: Set ConnectAsyncData instance as GTask data
+	Currently, the ConnectAsyncData instance is leaked if for example
+	we trigger one codepath calling g_task_return_error(). If we
+	associate it with the GTask with g_task_set_task_data(),
+	this kind of leak will be avoided.
+
+	wocky: Simplify wocky_http_proxy_connect_finish()
+	Rather than returning the whole ConnectAsyncData struct with
+	g_task_return_pointer(), we can return only the GIOStream object as this
+	is what we are interested in.
+
+	This has the side-effect of fixing a ConnectAsyncData leak as after
+	calling g_task_propagate_pointer() the old code had ownership of the
+	ConnectAsyncData instance but was never freeing it.
+
+	The leak is:
+	==20010== 4,348 (56 direct, 4,292 indirect) bytes in 1 blocks are definitely lost in loss record 20,762 of 20,999
+	==20010==    at 0x4C2DA60: calloc (vg_replace_malloc.c:711)
+	==20010==    by 0xD0F6EB0: g_malloc0 (gmem.c:124)
+	==20010==    by 0x75C0978: wocky_http_proxy_connect_async (wocky-http-proxy.c:359)
+	==20010==    by 0xCB4E22C: g_socket_client_connected_callback (gsocketclient.c:1548)
+	==20010==    by 0xCB57342: g_task_return_now (gtask.c:1107)
+	==20010==    by 0xCB579E5: g_task_return (gtask.c:1165)
+	==20010==    by 0xCB4FB1C: g_socket_connection_connect_callback (gsocketconnection.c:236)
+	==20010==    by 0xCB47160: socket_source_dispatch (gsocket.c:3543)
+	==20010==    by 0xD0F1702: g_main_dispatch (gmain.c:3154)
+	==20010==    by 0xD0F1702: g_main_context_dispatch (gmain.c:3769)
+	==20010==    by 0xD0F1AAF: g_main_context_iterate.isra.29 (gmain.c:3840)
+	==20010==    by 0xD0F1B5B: g_main_context_iteration (gmain.c:3901)
+	==20010==    by 0xCB7D58C: g_application_run (gapplication.c:2381)
+	==20010==    by 0x41571C: main (remote-viewer-main.c:42)
+
+2016-08-03  Christophe Fergeau  <cfergeau@redhat.com>
+
+	spicy: Fix spice_file_transfer_task_get_filename leak
+	It was wrongly annotated as (transfer none)
+
+	An alternative would be to store what is returned by
+	g_file_get_basename() in SpiceFileTransferTask and return that, this
+	would allow to make spice_file_transfer_task_get_filename() (transfer
+	none) without leaking memory.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-08-03  Victor Toso  <victortoso@redhat.com>
+
+	channel-main: avoid race around file-transfer flush
+	This patch avoids a race condition. The race happens when we mark the
+	xfer-task as completed by receiving VD_AGENT_FILE_XFER_STATUS_SUCCESS
+	message while the flush callback was not yet called.
+
+	The flush callback is file_xfer_data_flushed_cb() and it might not be
+	called immediately after data is flushed.
+
+	The race can be verified while transferring several small files at
+	once. I can see it often with more then 50 files in one transfer
+	operation.
+
+	This fix implies that SpiceMainChannel should check in its async
+	callbacks if given SpiceFileTransferTask is completed.
+
+	This patch introduces spice_file_transfer_task_is_completed (internal)
+	to help check if spice_file_transfer_task_completed() was called or
+	not.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-08-03  Christophe Fergeau  <cfergeau@redhat.com>
+
+	file-transfer: avoid potential leaks
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-08-03  Victor Toso  <victortoso@redhat.com>
+
+	file-transfer: Fix SpiceFileTransferTask::error leak
+	The self->error is the error set for the file-transfer and it will be
+	propagated with the "finish" signal. As this is transfer none pointer,
+	we should not lose its reference on g_task_return_error and we should
+	clear it out afterwards.
+
+	40 (16 direct, 24 indirect) bytes in 1 blocks are definitely lost in
+	loss record 7,489 of 14,298
+	 at 0x4C2BBAD: malloc (vg_replace_malloc.c:299)
+	 by 0xB5090E8: g_malloc (gmem.c:94)
+	 by 0xB51F8A2: g_slice_alloc (gslice.c:1025)
+	 by 0xB4EFCC5: g_error_new_literal (gerror.c:471)
+	 by 0xB4EFFAD: g_set_error_literal (gerror.c:619)
+	 by 0xAF13397: g_cancellable_set_error_if_cancelled (gcancellable.c:314)
+	 by 0xAF630C8: g_task_propagate_error (gtask.c:1519)
+	 by 0xAF63CD8: g_task_propagate_int (gtask.c:1652)
+	 by 0x50863F5: spice_file_transfer_task_read_finish (spice-file-transfer-task.c:477)
+	 by 0x5093239: file_xfer_read_async_cb (channel-main.c:1811)
+	 by 0xAF62F38: g_task_return_now (gtask.c:1121)
+	 by 0xAF63775: g_task_return (gtask.c:1179)
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-08-03  Christophe Fergeau  <cfergeau@redhat.com>
+
+	file-transfer: Fix SpiceFileTransferTask::file_stream leak
+	g_file_read_finish() is (transfer full) so we must release the ref
+	we got in _dispose() as it's not done anywhere else in the code.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	file-transfer: Fix GTask leaks
+	The file transfer code calls g_*_async() methods with a GTask as the
+	user_data argument. It needs to own a reference to the GTask for the
+	duration of the async call to keep the GTask alive, however it was never
+	releasing it when it no longer needs it (that is, after calling
+	g_task_return_*).
+
+	Some of the leaks fixed by this patch are:
+
+	* GTask leak after flush
+	11,232 bytes in 54 blocks are definitely lost in
+	loss record 14,018 of 14,071
+	 at 0x4C2BBAD: malloc (vg_replace_malloc.c:299)
+	 by 0xC14A0E8: g_malloc (gmem.c:94)
+	 by 0xC1608A2: g_slice_alloc (gslice.c:1025)
+	 by 0xC160ECD: g_slice_alloc0 (gslice.c:1051)
+	 by 0xBEDBD11: g_type_create_instance (gtype.c:1857)
+	 by 0xBEBD7DA: g_object_new_internal (gobject.c:1781)
+	 by 0xBEBF11C: g_object_newv (gobject.c:1928)
+	 by 0xBEBF89B: g_object_new (gobject.c:1621)
+	 by 0xBBA4424: g_task_new (gtask.c:693)
+	 by 0x6F8C3C0: file_xfer_flush_async (channel-main.c:899)
+	 by 0x6F8C3C0: file_xfer_read_async_cb (channel-main.c:1826)
+	 by 0xBBA3F38: g_task_return_now (gtask.c:1121)
+	 by 0xBBA4775: g_task_return (gtask.c:1179)
+
+	* GTask leak from spice_main_file_copy_async()
+	208 bytes in 1 blocks are definitely lost in
+	loss record 13,708 of 15,093
+	 at 0x4C2BBAD: malloc (vg_replace_malloc.c:299)
+	 by 0xC14A0E8: g_malloc (gmem.c:94)
+	 by 0xC1608A2: g_slice_alloc (gslice.c:1025)
+	 by 0xC160ECD: g_slice_alloc0 (gslice.c:1051)
+	 by 0xBEDBD11: g_type_create_instance (gtype.c:1857)
+	 by 0xBEBD7DA: g_object_new_internal (gobject.c:1781)
+	 by 0xBEBF11C: g_object_newv (gobject.c:1928)
+	 by 0xBEBF89B: g_object_new (gobject.c:1621)
+	 by 0xBBA4424: g_task_new (gtask.c:693)
+	 by 0x6F8EF55: spice_main_file_copy_async (channel-main.c:3084)
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	test-file-transfer: Don't leak GError
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	test-file-transfer: Don't leak GFileInfo
+	The GFileInfo returned by spice_file_transfer_task_init_task_finish()
+	must be unref'ed when no longer needed.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-07-30  Victor Toso  <victortoso@redhat.com>
+
+	file-transfer: remove unused function for debug
+	This is here due bad rebase. It was removed and replaced by patch
+	f6072e678ea5 but not removed from 1af22e9652ddcbdd426cd "file-xfer:
+	move to spice-file-transfer-task.c", so the function is there, unused.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-07-29  Pavel Grunt  <pgrunt@redhat.com>
+
+	session: Fix IPv6 by using g_network_address_parse
+	It supports quoting the address with []
+
+	Regression since ea37f06eaa11b6307c797895aeb85d87d142625a
+
+	Fixes:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1361478
+
+2016-07-29  Christophe Fergeau  <cfergeau@redhat.com>
+
+	vmc: Fix leak in spice_vmc_output_stream_write_finish()
+	We own a reference on the GAsyncResult returned by
+	g_task_propage_pointer() so we have to g_object_unref() it when we no
+	longer need it.
+
+	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
+
+2016-07-29  Fabiano Fidêncio  <fidencio@redhat.com>
+
+	vmcstream: set the right result for the task
+	This bogus code was introduced when switching to GTask API. Seems that
+	while writing those patches I just overlooked this part and set the wrong
+	result for the task. As part of the problems introduced (and now fixed)
+	you can notice that no output stream was being sent to the guest.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-07-28  Pavel Grunt  <pgrunt@redhat.com>
+
+	webdav: Do not reuse cancellable
+	Create it on SPICE_PORT_EVENT_OPENED
+
+	From g_cancellable_reset documentation:
+	 Note that it is generally not a good idea to reuse an existing
+	 cancellable for more operations after it has been cancelled once,
+	 as this function might tempt you to do. The recommended practice is
+	 to drop the reference to a cancellable after cancelling it, and let it
+	 die with the outstanding async operations. You should create a fresh
+	 cancellable for further async operations
+
+	In our case reusing the cancellable leads to a crash:
+	 #0  0x00007ffff1662940 in g_task_return_error () at /lib64/libgio-2.0.so.0
+	 #1  0x00007ffff1662b60 in g_task_return_new_error () at /lib64/libgio-2.0.so.0
+	 #2  0x00007ffff57916e0 in read_cancelled (cancellable=<optimized out>, user_data=<optimized out>) at vmcstream.c:182
+	 #3  0x00007ffff1391555 in g_closure_invoke () at /lib64/libgobject-2.0.so.0
+	 #4  0x00007ffff13a4062 in signal_emit_unlocked_R () at /lib64/libgobject-2.0.so.0
+	 #5  0x00007ffff13acf5f in g_signal_emit_valist () at /lib64/libgobject-2.0.so.0
+	 #6  0x00007ffff13ad33f in g_signal_emit () at /lib64/libgobject-2.0.so.0
+	 #7  0x00007ffff16100d8 in g_cancellable_cancel () at /lib64/libgio-2.0.so.0
+	 #8  0x00007ffff5775c01 in port_event (self=0xc7af60, event=1) at channel-webdav.c:512
+	 #9  0x00007ffff1391555 in g_closure_invoke () at /lib64/libgobject-2.0.so.0
+	 #10 0x00007ffff13a445d in signal_emit_unlocked_R () at /lib64/libgobject-2.0.so.0
+	 #11 0x00007ffff13acf5f in g_signal_emit_valist () at /lib64/libgobject-2.0.so.0
+	 #12 0x00007ffff577479a in emit_main_context (opaque=0x7fffa5fff8d0) at gio-coroutine.c:200
+	 #13 0x00007ffff10b7847 in g_idle_dispatch () at /lib64/libglib-2.0.so.0
+	 #14 0x00007ffff10bade2 in g_main_context_dispatch () at /lib64/libglib-2.0.so.0
+	 #15 0x00007ffff10bb160 in g_main_context_iterate.isra () at /lib64/libglib-2.0.so.0
+	 #16 0x00007ffff10bb20c in g_main_context_iteration () at /lib64/libglib-2.0.so.0
+	 #17 0x00007ffff1677d2d in g_application_run () at /lib64/libgio-2.0.so.0
+	 #18 0x000000000041031a in main (argc=2, argv=0x7fffffffd928) at remote-viewer-main.c:42
+
+	Fixes:
+	https://bugs.freedesktop.org/show_bug.cgi?id=97113
+
+2016-07-28  Lukas Venhoda  <lvenhoda@redhat.com>
+
+	spice-widget: init egl only after first gl_scanout
+	When using GtkDrawingArea and EGL was not used, it was still initialized.
+	This produced warning messages on systems where EGL is not supported.
+
+	Move spice_egl_init from drawing_area_realize to gl_scanout.
+
+	Fixes:
+	https://bugs.freedesktop.org/show_bug.cgi?id=95254
+
+2016-07-28  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	misc: code style
+	Brace on new line for functions, 4 spaces indent, seperate end block
+
+	usbredir: fix leaks introduced by lz4 patch
+	While reviewing lz4 patch, I found that there are potential leaks. This
+	is untested, fyi. It would be nice if someone could confirm with running
+	ASAN for example.
+
+	Reviewed-by: Snir Sheriber <ssheribe@redhat.com>
+
+2016-07-27  Frediano Ziglio  <fziglio@redhat.com>
+
+	Handle pause key correctly
+	Windows does not like Pause key sent with same scancodes as Break.
+	Although is the same physical key the two functions send two completely
+	different set of codes. On key press a E1 1D 45 sequence is generated
+	while on key release a E1 9D C5 is generated. Also some hardware
+	keyboards send press+release at the same time on key press (nothing on
+	release).
+	Tested with Linux and Windows clients.
+	Tested with Linux, Windows and DOS guests.
+	On Windows guest VK_PAUSE was not arriving correctly.
+
+	An additional send_pause function was added to avoid to change the
+	normal flow too much. This as the keymap table (generated from
+	src/keymaps.csv) can hold only one scancode while this key generate two
+	scancodes (ie E1-1D and 45) for each event.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-07-26  Frediano Ziglio  <fziglio@redhat.com>
+
+	Support more extension codes
+	Not only E0 prefix but also E1 and E2.
+	They are used in some special cases, one is the pause key.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-07-14  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	SpiceWidget: limit scope of 'area' variable
+	'area' was being set within the 'else' branch, but was not actually
+	used. So just move the declaration of 'area' within the if statement
+	where it is actually used. This potentially avoids "set-but-not-used"
+	warnings when GDK_WINDOWING_X11 is not defined.
+
+2016-07-14  Eduardo Lima (Etrunko)  <etrunko@redhat.com>
+
+	configure: Add ${top_builddir}/spice-common to COMMON_CFLAGS
+	This fixes the build when done out of the tree, because of recent commit
+	in spice-common with auto-generated files.
+
+2016-07-13  Eduardo Lima (Etrunko)  <etrunko@redhat.com>
+
+	Use correct variable to print if LZ4 support is to be built.
+
+2016-07-11  Snir Sheriber  <ssheribe@redhat.com>
+
+	Usbredir: enable lz4 compression
+	Compressed message type is CompressedData which contains compression
+	type (1 byte) followed by the uncompressed data size (4 bytes-exists
+	only if data was compressed) followed by the compressed data
+
+	If SPICE_SPICEVMC_CAP_DATA_COMPRESS_LZ4 capability is available &&
+	data_size > COMPRESS_THRESHOLD && !AF_LOCAL data will be sent
+	compressed otherwise data will be sent uncompressed (as well if
+	compression has failed)
+
+	Update required spice-protocol to 0.12.12
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-07-11  Victor Toso  <victortoso@redhat.com>
+
+	Update spice-common submodule
+
+2016-07-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	util: fix off-by-one array access
+	Thanks to ASAN, I found this off-by-one memory access in the unix2dos
+	code:
+
+	/util/unix2dos: =================================================================
+	==23589==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x60200000dd2f at pc 0x00000040428e bp 0x7ffd6fc31b90 sp 0x7ffd6fc31b80
+	READ of size 1 at 0x60200000dd2f thread T0
+	    #0 0x40428d in spice_convert_newlines /home/elmarco/src/spice/spice-gtk/src/spice-util.c:355
+	    #1 0x40443a in spice_unix2dos /home/elmarco/src/spice/spice-gtk/src/spice-util.c:382
+	    #2 0x401eae in test_unix2dos /home/elmarco/src/spice/spice-gtk/tests/util.c:69
+	    #3 0x7fb8bcd81983  (/lib64/libglib-2.0.so.0+0x6e983)
+	    #4 0x7fb8bcd81b4e  (/lib64/libglib-2.0.so.0+0x6eb4e)
+	    #5 0x7fb8bcd81d5d in g_test_run_suite (/lib64/libglib-2.0.so.0+0x6ed5d)
+	    #6 0x7fb8bcd81d80 in g_test_run (/lib64/libglib-2.0.so.0+0x6ed80)
+	    #7 0x402cce in main /home/elmarco/src/spice/spice-gtk/tests/util.c:207
+	    #8 0x7fb8bc755730 in __libc_start_main (/lib64/libc.so.6+0x20730)
+	    #9 0x401818 in _start (/home/elmarco/src/spice/spice-gtk/tests/util+0x401818)
+
+	0x60200000dd2f is located 1 bytes to the left of 4-byte region [0x60200000dd30,0x60200000dd34)
+	allocated by thread T0 here:
+	    #0 0x7fb8c10421d0 in realloc (/lib64/libasan.so.3+0xc71d0)
+	    #1 0x7fb8bcd61f1f in g_realloc (/lib64/libglib-2.0.so.0+0x4ef1f)
+
+	SUMMARY: AddressSanitizer: heap-buffer-overflow /home/elmarco/src/spice/spice-gtk/src/spice-util.c:355 in spice_convert_newlines
+
+	doc: fix unused warning
+	Fix gtk-doc warning by ignoring the new private header.
+
+	./spice-gtk-unused.txt:1: warning: 12 unused declarations.They should be
+	added to spice-gtk-sections.txt in the appropriate place.
+
+	While at it, fix grabsequence header incorrect file name.
+
+2016-07-07  Victor Toso  <victortoso@redhat.com>
+
+	tests: file-transfer agent cancel
+	Agent only can only send error or cancel from a transfer operation
+	after it was initialized. From SpiceFileTransferTask point of view,
+	error and cancellation is an GError with different code so testing
+	only cancel seems enough.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	tests: file-transfer cancel on read async
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	tests: file-transfer cancel on task init
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	tests: file-transfer include simple tests
+	This only includes a simple test for file-transfer with a small
+	summary of the possible situations of the test.
+
+	As the test is specifically for SpiceFileTransferTask, we don't create
+	a SpiceMainChannel.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: move to spice-file-transfer-task.c
+	This patch moves:
+	* GObject boilerplate
+	* External API related to SpiceFileTransferTask
+	* Internal API needed by channel-main
+	* Helpers that belong to this object
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	main: use xfer_task instead of task or self
+	Another patch to rename variable and keep consistency across
+	channel-main. Let's avoid task which is common for GTask and self for
+	non SpiceMainChannel objects
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: move debug to SpiceFileTransferTask
+	This debug information is simple way to check that the file-transfer
+	is not stalled. Now that we are using the read-async functions, we can
+	move this debug info there and avoid accessing object internals in
+	channel-main.c
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: Keep namespace of private function
+	Rename:
+	* file_xfer_close_cb -> spice_file_transfer_task_close_stream_cb
+
+	As this will be private to SpiceFileTransferTask
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: call user callback once per operation
+	SpiceFileTransferTask has a callback to be called when operation
+	ended. Til this patch, we were setting the user callback which means
+	that in multiple file-transfers, we were calling the user callback
+	several times.
+
+	Following the same logic pointed from 113093dd00a1cf10f6d3c3589b7 this
+	is a SpiceMainChannel operation and it should only call the user
+	callback when this operation is over (FileTransferOperation now).
+
+	Highlights:
+	* Now using GTask to set user callback and callback_data
+	* Handling error on FileTransferOperation:
+	- It is considered an error if no file was successfully transferred due
+	  cancellations or any other kind of error;
+	- If any file failed due any error, we will consider the operation a
+	  failure even if other files succeed.
+
+	Note also that SpiceFileTransferTask now does not have a callback and
+	callback_data. The xfer_tasks has ended after its "finish" signal is
+	emitted.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: call progress_callback per FileTransferOperation
+	Before this patch, the progress_callback is being called from
+	SpiceFileTransferTask each time that some data is flushed to the agent
+	of this given xfer-task. The progress value is computed by iterating
+	on all available xfer-tasks.
+
+	This patch intend to fix/change:
+
+	* The progress_callback should be called only with information related
+	  to the FileTransferOperation of given xfer-task; This was also
+	  suggested by 113093dd00a1cf10f6d3c3589b7589a184cec081;
+
+	* In case a SpiceFileTransferTask is cancelled or has an error, we
+	  remove the remaining bytes (not sent) of this file from the
+	  transfer_size;
+
+	* The progress_callback should not be done from SpiceFileTransferTask
+	  context by (proposed) design. As the transfer operation starts in
+	  spice_main_file_copy_async(), FileTransferOperation should handle
+	  these calls.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: inform agent of errors only when task finished
+	No need to inform of a problem under
+	spice_file_transfer_task_completed() as the task will be finalized and
+	we can send the error to the agent there.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: a FileTransferOperation per transfer call
+	Each call to spice_main_file_copy_async will now create a
+	FileTransferOperation which groups all SpiceFileTransferTasks of the
+	copy operation in a GHashTable.
+
+	To ease the review process, this first patch introduces the structure
+	and organize the logic around the four following helpers:
+
+	* spice_main_channel_reset_all_xfer_operations
+	* spice_main_channel_find_xfer_task_by_task_id
+	* file_transfer_operation_free
+	* file_transfer_operation_task_finished
+
+	The _task_finished function is the new callback for "finished" signal
+	from SpiceFileTransferTask.
+
+	The file_xfer_tasks GHashTable is now mapped as:
+	 (key) SpiceFileTransferTask ID -> (value) FileTransferOperation
+
+	This patch leaves a FIXME regarding progress_callback which will be
+	addressed in a later patch in this series.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: create helper function to send progress
+	This is an intermediary step for the following patches to make the
+	changes more clear and easy to follow.
+
+	In file_xfer_send_progress(), I've renamed the variable self to
+	xfer_task as this is not SpiceFileTransferTask function.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: improve helper function to queue agent message
+	This patch changes:
+	* rename function: file_xfer_queue -> file_xfer_queue_msg_to_agent
+	  As it makes more clear what this helper function does;
+	* Use buffer provided by spice_file_transfer_task_read_finish()
+	  instead of accessing SpiceFileTransferTask's private structure
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	main: do not check for xfer-task errors
+	The errors related to SpiceFileTransferTask can be present:
+	* before the flush happens, on spice_file_transfer_task_read_async()
+	* during the async flush:
+	  - cancel from user which is handled by file_xfer_flush_async
+	  - cancel/error from agent, handled on main_agent_handle_xfer_status()
+
+	file_xfer_flush_finish() should not check internal errors of
+	SpiceFileTransferTask and only be worried about errors regarding the
+	flush itself.
+
+	Note that with or without this patch, in case of errors from agent, we
+	don't stop the flushing; it is only cancelled from user cancellation.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	main: let channel-main handle file-xfer messages
+	By separating SpiceFileTransferTask from channel-main, we could choose
+	where to put the handler for messages. With the approach based on
+	spice_file_transfer_task_read_async(), we cannot have it under
+	spice-file-transfer-task.c due the need of callback and userdata on
+	_read_async.
+
+	It is much easier to keep this in channel-main and do not move any
+	VDAgent.
+
+	This patch reverts 349a52ca2d6af4b31a4f51c38a3292c04460953c changes
+	but it does rename:
+	- function file_xfer_handle_status -> main_agent_handle_xfer_status
+	- variables task to xfer_task
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	main: to let SpiceFileTransferTask handle errors
+	* on VD_AGENT_FILE_XFER_STATUS_CAN_SEND_DATA, if the file-transfer is
+	  on pending state, spice_file_transfer_task_read_async() will call the
+	  callback with error set.
+
+	* on VD_AGENT_FILE_XFER_STATUS_SUCCESS, if the file-transfer is on
+	  pending state, spice_file_transfer_task_completed() will set the
+	  error for this task.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: introduce functions to read file async
+	Introduced functions (private):
+	* void   spice_file_transfer_task_read_async()
+	* gssize spice_file_transfer_task_read_finish()
+
+	For a better abstraction of how to read from SpiceFileTransferTask and
+	handle its data, following the design of other objects like GFile and
+	GInputStream.
+
+	Due to the logic changes involved, some functions were created or
+	renamed to better address or match its place and purpose:
+
+	* spice_file_transfer_task_read_stream_cb
+	  Callback for the actual read from GInpustStream; This is handling
+	  the SpiceFileTransferTask bits only;
+
+	* file_xfer_read_cb -> file_xfer_read_async_cb
+	  Renamed to match _read_async() function; This is handling the data
+	  from reading the file by flushing it to the agent.
+
+	As the _read_async() uses GTask, the error handling is done on the
+	channel-main's callback, after _read_finish() is called.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: introduce functions to init task async
+	Introduced functions (private):
+	* void       spice_file_transfer_task_init_task_async()
+	* GFileInfo *spice_file_transfer_task_init_task_finish()
+
+	The init process of SpiceFileTransferTask does initialize its
+	GFileInputStream (for reading the file) and also its GFileInfo
+	(necessary to protocol in order to start the file-transfer with agent)
+
+	Due the logic changed involved, some functions were renamed to better
+	match its place and purpose:
+
+	* file_xfer_info_async_cb -> file_xfer_init_task_async_cb
+	  It is channel-main's callback for each _init_task_async()
+
+	* file_xfer_read_async_cb -> spice_file_transfer_task_read_file_cb
+	* file_xfer_info_async_cb -> spice_file_transfer_task_query_info_cb
+	  Both should be private to SpiceFileTransferTask now.
+
+	As the _init_task_async() uses GTask, some error handling was moved to
+	channel-main's after _init_task_finish() is called.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: introduce _create_tasks()
+	We can split from file_xfer_send_start_msg_async() the logic in
+	creating the SpiceFileTransferTasks; The rest of the function can be
+	handled at spice_main_file_copy_async().
+
+	The new function, spice_file_transfer_task_create_tasks() returns a
+	GHashTable to optimize the access to a SpiceFileTransferTask from its
+	task-id, which is what we receive from the agent.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: get functions for SpiceFileTransferTask
+	In order for channel-main to interact with each SpiceFileTransferTask
+	for the file-transfer operation, the following functions are
+	introduced:
+	* spice_file_transfer_task_get_id
+	* spice_file_transfer_task_get_channel
+	* spice_file_transfer_task_get_cancellable
+
+	Note that "id" property is public and could be acquired by
+	g_object_get but having the helper function is more practical.
+
+	This change is related to split SpiceFileTransferTask from
+	channel-main.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	file-xfer: task-id to start with 1
+	As this is unsigned, we can let 0 be in case of error
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-06-30  Christophe Fergeau  <cfergeau@redhat.com>
+
+	usb-device-manager: Avoid USB event thread leak
+	This is a follow-up of the previous commit ('usb-channel: Really stop
+	listening for USB events on disconnection').
+
+	Since the USB event thread has to be stopped when we destroy the
+	associated SpiceUsbDeviceManager, spice_usb_device_manager_dispose()
+	should force event_thread_run to FALSE even if
+	spice_usb_device_manager_stop_event_listening() was not enough. When
+	this happens, this means that there is a bug in the internal users of
+	spice_usb_device_manager_start_event_listening(), but with this change,
+	we'll at least warn about it, and avoid a thread leak/potential future
+	crash.
+
+	usb-channel: Really stop listening for USB events on disconnection
+	When using USB redirection, it's fairly easy to leak the thread handling
+	USB events, which will eventually cause problems in long lived apps.
+	In particular, in virt-manager, one can:
+	- start a VM
+	- connect to it with SPICE
+	- open the USB redirection window
+	- redirect a device
+	- close the SPICE window
+	-> the SpiceUsbDeviceManager instance will be destroyed (including the
+	USB context it owns), but the associated event thread will keep running.
+	Since it's running a loop blocking on libusb_handle_events(priv->context),
+	the loop will eventually try to use the USB context we just destroyed
+	causing a crash.
+
+	We can get in this situation when redirecting a USB device because we
+	will call spice_usb_device_manager_start_event_listening() in
+	spice_usbredir_channel_open_device(). The matching
+	spice_usb_device_manager_stop_event_listening() call is supposed to
+	happen in spice_usbredir_channel_disconnect_device(), however by the
+	time it's called in the scenario described above, the session associated
+	with the channel will already have been set to NULL in
+	spice_session_channel_destroy().
+
+	The session is only needed in order to get the SpiceUsbDeviceManager
+	instance we need to call spice_usb_device_manager_stop_event_listening()
+	on. This patch stores it in SpiceChannelUsbredir instead, this way we
+	don't need SpiceChannel::session to be non-NULL during device
+	disconnection.
+
+	This should fix the issues described in
+	https://bugzilla.redhat.com/show_bug.cgi?id=1217202
+	(virt-manager) and most
+	likely https://bugzilla.redhat.com/show_bug.cgi?id=1337007 (gnome-boxes)
+	as well.
+
+	usb: Update outdated GSimpleAsyncResult comment
+	It's still true after the switch to GTask.
+
+	usbredir: Use atomic for UsbDeviceManager::event_thread_run
+	This variable is accessed from 2 different threads (main thread and USB
+	event thread), so some care must be taken to read/write it.
+
+2016-06-30  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	usbredir: mark some functions as internal
+	For the sake of making clear those are not exported.
+
+2016-06-30  Christophe Fergeau  <cfergeau@redhat.com>
+
+	usbredir: Fix GTask leak
+	spice_usbredir_channel_disconnect_device_async() creates a GTask and
+	then calls g_task_run_in_thread(). This method will take the reference
+	it needs on the GTask, it does not take ownership of the passed-in
+	GTask. This means we need to unref the GTask we created after calling
+	g_task_run_in_thread(), otherwise we are going to leak the GTask, as
+	well as the channel it's associated with.
+	Since it's an USB redir channel, this also causes some USB device
+	manager/USB event thread leaks.
+
 2016-06-21  Marc-André Lureau  <marcandre.lureau@gmail.com>
 
 	Update NEWS for 0.32 release
@@ -924,7 +2054,7 @@
 
 	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
 
-2016-04-01  Pavel Grunt  <pgrunt@redhat.com>
+2016-04-02  Pavel Grunt  <pgrunt@redhat.com>
 
 	widget-egl: Define label only if can be used
 	The label can be used only with GDK_WINDOWING_WAYLAND
@@ -961,7 +2091,7 @@
 	additions/removals, and some removed symbols were still listed in
 	map-file.
 
-2016-03-29  Victor Toso  <victortoso@redhat.com>
+2016-03-30  Victor Toso  <victortoso@redhat.com>
 
 	egl: fix leak when display is unrealize
 	eglTerminate should be called on unrealize. This not yet fix all the
@@ -1134,7 +2264,7 @@
 
 	usb: fix build, missing ')'
 
-2016-03-24  Jonathon Jongsma  <jjongsma@redhat.com>
+2016-03-25  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	usb device widget: don't try to disconnect on failed connect
 	When you try to redirect a usb device to the guest and it fails, we
@@ -1509,7 +2639,7 @@
 
 	Avoid to access array with negative numbers
 
-2016-03-22  Fabiano Fidêncio  <fidencio@redhat.com>
+2016-03-23  Fabiano Fidêncio  <fidencio@redhat.com>
 
 	vmcstream,gtask: Do idle ourself instead of leaving it to GTask's heuristic
 	Seems that GTask heuristic only makes sense in a non-coroutine case.
@@ -1699,7 +2829,7 @@
 
 	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
 
-2016-03-14  Fabiano Fidêncio  <fidencio@redhat.com>
+2016-03-15  Fabiano Fidêncio  <fidencio@redhat.com>
 
 	wocky-http-proxy: Use GTask instead of GSimpleAsyncResult
 	Instead of using GSimpleAsyncResult, use the new GTask API, which is
@@ -2229,7 +3359,7 @@
 
 	Acked-by: Victor Toso <victortoso@redhat.com>
 
-2015-11-19  Jay.han  <ezzzehxx@gmail.com>
+2015-11-20  Jay.han  <ezzzehxx@gmail.com>
 
 	file transfer: send cancel message when user cancels a transfer
 	When a user cancel's a file transfer, we should send a STATUS_CANCELED
@@ -2449,7 +3579,7 @@
 	releasing a reference, it's better to make it obvious that this method
 	is a _free() method rather than an _unref() one.
 
-2015-10-09  Jonathon Jongsma  <jjongsma@redhat.com>
+2015-10-10  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	New file transfer API
 	There were several shortcomings to the existing file transfer API,
@@ -2483,6 +3613,8 @@
 
 	The 'spicy' test application has been updated to use this new API and
 	display a simple dialog showing the progress of individual files.
+
+2015-10-09  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Fix progress monitoring in spice_main_file_copy_async
 	spice_main_file_copy_async() allows you to pass a NULL-terminated array
@@ -2596,7 +3728,7 @@
 	but no specific version of it, so we can drop the duplicate
 	Requires.private requirement, and keep the unversioned one in Requires.
 
-2015-09-10  Jonathon Jongsma  <jjongsma@redhat.com>
+2015-09-11  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Don't send monitors config when Display widget is created
 	When a display channel is associated with a particular SpiceDisplay
@@ -2713,7 +3845,7 @@
 	Resolves:
 	https://bugs.freedesktop.org/show_bug.cgi?id=91489
 
-2015-07-28  Sandy Stutsman  <sstutsma@redhat.com>
+2015-07-29  Sandy Stutsman  <sstutsma@redhat.com>
 
 	Handle single headed monitors that have a non-zero x, y config
 	Each monitor on a Windows guest is represented as a separate, single-headed
@@ -2736,12 +3868,14 @@
 	It should be harmless on other distros, and it does save us Debian guys some
 	hassle.
 
-2015-07-13  Pavel Grunt  <pgrunt@redhat.com>
+2015-07-14  Pavel Grunt  <pgrunt@redhat.com>
 
 	Use g_return_val_if_fail instead of wrong g_return_if_fail
 	The commit 4b5e6ec2114e1250c81027ebeac9cfe8d059153f introduced a function
 	returning gboolean, g_return_val_if_fail() should be used instead of
 	g_return_if_fail().
+
+2015-07-13  Pavel Grunt  <pgrunt@redhat.com>
 
 	Send monitor config if at least one monitor has dimensions
 	If a client (virt-manager, spicy) is not setting display dimensions
@@ -3273,7 +4407,7 @@
 	==6481==    by 0x31FEE4A771: g_main_loop_run (gmain.c:4002)
 	==6481==    by 0x363AC06CC4: gtk_main (in /usr/lib64/libgtk-3.so.0.1600.1)
 
-2015-04-15  Jonathon Jongsma  <jjongsma@redhat.com>
+2015-04-16  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Make update-symbol-files work when builddir != srcdir
 	rewrite the update-symbol-files rule to use dependencies and automatic
@@ -3522,7 +4656,7 @@
 	Keys should be sent to the guest if the widget has the focus even
 	when the keyboard grab is released.
 
-2015-02-06  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2015-02-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	webdav: fix checking for shared directory property
 	Trivial fix for 6163828e8cb15d539c80cc3f0bfb5008be9b2247:
@@ -4390,7 +5524,7 @@
 
 	https://bugzilla.redhat.com/show_bug.cgi?id=1135099
 
-2014-08-28  Jonathon Jongsma  <jjongsma@redhat.com>
+2014-08-29  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Wait to send monitor config until agent caps are received
 	When the first display is disabled and the vdagent is restarted in the guest,
@@ -4677,7 +5811,7 @@
 	Spice-GTK provides SPICE-specific command line options. This man page
 	describes these options as well as the format of SPICE URIs.
 
-2014-04-03  Jonathon Jongsma  <jjongsma@redhat.com>
+2014-04-04  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Use GdkKeymap to listen for keyboard modifier changes
 	Connect to the GdkKeymap::state-changed signal to detect when the client
@@ -4719,7 +5853,7 @@
 
 	build-sys: add missing soup subst
 
-2014-03-31  Jonathon Jongsma  <jjongsma@redhat.com>
+2014-04-01  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Fix missing SPICE_GTK_MICRO_VERSION value
 	configure.ac tries to assign a default value of 0 to the micro version if it's
@@ -4800,7 +5934,7 @@
 	I've checked that this does not introduce new warnings on linux and mingw32
 	builds.
 
-2014-03-14  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2014-03-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Fix spice_display_get_pixbuf() with offset area
 	Fix screenshot of secondary displays, with an area position != (0,0).
@@ -5068,7 +6202,7 @@
 	spice-gtk-0.22.9-fb3d/spice-gtk3-0.22.9/gtk/spice-util.c:364: dead_error_condition: The condition "err" cannot be true.
 	spice-gtk-0.22.9-fb3d/spice-gtk3-0.22.9/gtk/spice-util.c:365: dead_error_begin: Execution cannot reach this statement "g_propagate_error(error, err);".
 
-2014-01-03  Christophe Fergeau  <cfergeau@redhat.com>
+2014-01-04  Christophe Fergeau  <cfergeau@redhat.com>
 
 	controller: Don't call g_type_init() in test with newer glib
 	g_type_init() is deprecated, calling it on newer glib causes a compile-time
@@ -5077,6 +6211,8 @@
 	controller: Add missing #ifdef WIN32 in test
 	The spicec_pid variable is only used in a #ifdef WIN32 block, but it was
 	unconditionnally declared/initialized. This causes a gcc warning.
+
+2014-01-03  Christophe Fergeau  <cfergeau@redhat.com>
 
 	controller: Avoid out of string bound accesses in test
 	When computing the amount of data to send for static strings, the test
@@ -5409,7 +6545,7 @@
 
 	coroutine: add some preconditions
 
-2013-11-07  Jonathon Jongsma  <jjongsma@redhat.com>
+2013-11-08  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Guarantee that 'uuid' property is notified after connection
 	This creates a synchronization point and allows API users to rely on the fact
@@ -5477,7 +6613,7 @@
 	client re-implement this, expose the utility function as public API in
 	spice-gtk.
 
-2013-10-19  Alon Levy  <alevy@redhat.com>
+2013-10-20  Alon Levy  <alevy@redhat.com>
 
 	channel-cursor: mono cursors edge highlighting
 	Fix 998529, mono (invert) cursors not visible on a black background, by doing
@@ -5901,8 +7037,6 @@
 	util: add unix2dos and dos2unix
 	Convert line endings from/to LF/CRLF.
 
-2013-08-23  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	Revert "channel-main: Convert text line-endings if necessary (rhbz#752350)"
 	This implementation assumes that the toolkit doesn't do any conversion
 	on its own. This is actually not the case, gtk+ converts line endings
@@ -5917,6 +7051,8 @@
 	following commits.
 
 	This reverts commit e45a446a9981ad4adaeff9c885962a8c6140333e.
+
+2013-08-23  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: remove dead code
 
@@ -5978,7 +7114,7 @@
 	./autogen.sh --with-gtk=2.0 --disable-gtk-doc --disable-vala
 	             --disable-controller --disable-werror
 
-2013-08-06  Yonit Halperin  <yhalperi@redhat.com>
+2013-08-07  Yonit Halperin  <yhalperi@redhat.com>
 
 	usb-device-manager: fix compilation error when usbredir is disabled
 
@@ -6832,7 +7968,7 @@
 
 	main: only notify on agent status change
 
-2013-03-19  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-03-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	controller: don't try to set integrity on XP x64 edition
 	XP x64 uses version 5.2, but doesn't accept setting the pipe to low
@@ -7010,14 +8146,14 @@
 	is only compiled in under Windows -> Remove the #ifdef to also catch this
 	under Linux.
 
-2013-02-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-02-08  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	display: keep monitor config updated if resize-guest is disabled
 	https://bugzilla.redhat.com/show_bug.cgi?id=908057
 
 	Update spice-common
 
-2013-02-06  Uri Lublin  <uril@redhat.com>
+2013-02-07  Uri Lublin  <uril@redhat.com>
 
 	mingw: spice-widget: make sure MAPVK_VK_TO_VSC is defined
 	MAPVK_VK_TO_VSC is defined in the file:
@@ -7089,7 +8225,7 @@
 	build: fix for automake-1.13
 	Use AC_CONFIG_HEADER instead of deprecated AM_CONFIG_HEADER.
 
-2013-01-31  Yonit Halperin  <yhalperi@redhat.com>
+2013-02-01  Yonit Halperin  <yhalperi@redhat.com>
 
 	update spice-common submodule
 	obtaining a fix related to palettes caching (fedora 875348, 826036)
@@ -7107,9 +8243,9 @@
 	on setenv(). Also doing so would override system environment, which
 	will modify other session too sharing the same process.
 
-2013-01-28  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	proxy: initialize proxy at session construct time
+
+2013-01-28  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Fix a bunch of gtkdoc/giscan warnings
 
@@ -7119,13 +8255,15 @@
 	open_host->error is only set if we try to use a proxy. Let´s make that
 	more clear.
 
-2013-01-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-01-22  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build-sys: generate THANKS at dist time
 
-2013-01-21  Jasper Lievisse Adriaanse  <jasper@humppa.nl>
+2013-01-22  Jasper Lievisse Adriaanse  <jasper@humppa.nl>
 
 	build-sys: Use a portable variable assignment in configure.ac
+
+2013-01-21  Jasper Lievisse Adriaanse  <jasper@humppa.nl>
 
 	build-sys: missing sys/types.h in gtk/channel-display.c
 
@@ -7164,7 +8302,7 @@
 
 	Searching the monitors property by monitor-id avoids these problems.
 
-2013-01-16  Andrew Hughes  <gnu.andrew@redhat.com>
+2013-01-17  Andrew Hughes  <gnu.andrew@redhat.com>
 
 	build-sys: fix out-of-tree build with vala
 
@@ -7228,7 +8366,7 @@
 	4) When file transfer has finished, file xfer task will be removed from
 	   task list.
 
-2013-01-11  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-01-12  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Release v0.16
 	v0.16
@@ -7238,6 +8376,8 @@
 	- Send monitor config to the agent on spice_main_set_display_enabled() (#881072)
 	- Fix channel leak and wrong condition in spice_channel_flush()
 	- Build fixes
+
+2013-01-11  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	spice-channel: fix state condition check in flush()
 
@@ -7329,7 +8469,7 @@
 	     result=0x8a58f0, data=0x7fffe3fffa80) at spice-session.c:1606
 	 #5  0x00007ffff5ea1278 in g_task_return_now (task=0x8a58f0) at gtask.c:1102
 
-2012-12-20  Hans de Goede  <hdegoede@redhat.com>
+2012-12-21  Hans de Goede  <hdegoede@redhat.com>
 
 	acl-helper policykit policy: Allow redir by default for console users
 	This makes usb-redir a lot more userfriendly to use. This  has been
@@ -7559,7 +8699,7 @@
 	https://bugzilla.redhat.com/show_bug.cgi?id=857430
 	https://bugzilla.redhat.com/show_bug.cgi?id=857389
 
-2012-11-12  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-11-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	widget: regrab when widget is reconfigured
 	On Windows, we need to update the cursor clip. Call ungrab&grab to update it.
@@ -7917,7 +9057,7 @@
 	Fix region leak in gtk2 compat defines
 	https://bugs.freedesktop.org/show_bug.cgi?id=54277
 
-2012-09-02  Søren Sandmann Pedersen  <ssp@redhat.com>
+2012-09-03  Søren Sandmann Pedersen  <ssp@redhat.com>
 
 	Advertise SPICE_DISPLAY_CAP_COMPOSITE
 
@@ -7955,8 +9095,6 @@
 	all my machines.
 
 	https://bugs.freedesktop.org/show_bug.cgi?id=54277
-
-2012-08-30  Alexander Larsson  <alexl@redhat.com>
 
 	Add only_downscale property
 	When this is enabled we never scale displays larger
@@ -8717,8 +9855,6 @@
 	to detect spice-gtk connection failures, it's important to emit
 	one in all error cases.
 
-2012-06-10  Christophe Fergeau  <cfergeau@redhat.com>
-
 	Emit SPICE_CHANNEL_ERROR_TLS when certificate can't be found
 	When trying to start remote-viewer with SPICE over TLS with
 	--spice-ca-file with a wrong filename, the connection fails
@@ -8744,7 +9880,7 @@
 	in the case where glibc can actually use it.  The trick is using
 	AH_VERBATIM instead of AC_DEFINE.
 
-2012-06-05  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-06-06  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Update spice-common
 
@@ -9181,11 +10317,11 @@
 	Always remove shared memory segment of primary surfaces when
 	destroying its canvas.
 
-2012-03-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	controllers: signal when a client is connected
 
 	controller: handle SEND_CAD message as a property
+
+2012-03-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Fix cursor not being shown in client mode in some cases
 	The following seems to happen:
@@ -9480,7 +10616,7 @@
 
 	channel-usbredir: Handle some more usbredirhost_read_guest_data errors
 
-2012-03-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-03-08  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Do not warn when starting spicy if usbredir is disabled
 
@@ -9678,7 +10814,7 @@
 
 	Lower or silence some harmless debug messages
 
-2012-02-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-02-02  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	widget: allow defining a zoom-level
 	Add a "zoom-level" property. Maintain the given scaling ratio when
@@ -9704,7 +10840,7 @@
 	display-init time in a follow-up patch since it probably never worked
 	with spice-gtk.
 
-2012-01-31  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-02-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Report the scaling is 1.0 if the widget isn't realized yet
 	To avoid a few warnings in some corner cases.
@@ -9878,7 +11014,7 @@
 	spice_audio_new
 	This should fix https://bugzilla.redhat.com/show_bug.cgi?id=772118
 
-2012-01-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-01-16  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Release 0.8
 
@@ -9963,8 +11099,6 @@
 	Add support for SPICE_COMMON_CAP_MINI_HEADER
 	Don't send/receive serial and sub_list when the server supports the
 	above cap.
-
-2012-01-10  Yonit Halperin  <yhalperi@redhat.com>
 
 	spice-channel:  support SPICE_MSG_LIST
 
@@ -10289,10 +11423,12 @@
 	more by the guest. Unfortunately there seems to be no gdk / gtk API for this
 	so this patch uses direct libX11 calls.
 
-2011-12-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-12-14  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	windows: fix broken left shift
 	On Windows, the received key when pressing left shift is VK_SHIFT 0x10
+
+2011-12-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Wrap in window, because windows doens't receive mouse events outside it
 
@@ -11686,9 +12822,11 @@
 	here. This had the side effect of making these functions not appear
 	in sym-file after running make update-sym-file.
 
-2011-05-24  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-05-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: add SSL ciphers session property
+
+2011-05-24  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	THANKS: update
 
@@ -11755,11 +12893,13 @@
 	display: fix build error GLib <2.26
 	https://bugs.freedesktop.org/show_bug.cgi?id=37443
 
-2011-05-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-05-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk/controller: correctly close namedpipe after calling close()
 
 	gtk/controller: add some missing clean up of namedpipe
+
+2011-05-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk/controller: forgot to dispose stream as well
 
@@ -11843,7 +12983,7 @@
 
 	(damn /me suck at PulseAudio client-side...)
 
-2011-05-03  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-05-04  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: fix SASL auth failed
 	Signal correctly to the client that AUTH failed.
@@ -12181,8 +13321,6 @@
 
 	gtk: remove some debugging, update TODO
 
-2011-03-27  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	Revert "gtk/display: remove unused mode name"
 	This reverts commit 33ef5a9368534f7fcb77ef60d8811ae08a707e4f.
 
@@ -12289,8 +13427,6 @@
 2011-02-22  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: add SASL support
-
-2011-02-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build: fix spice-client-gtk-3.0.pc requires
 
@@ -12419,9 +13555,9 @@
 	that the function is safe: the function returns when removing the
 	item, so it was safe before but as well...
 
-2011-01-19  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	gtk: fix small mem-leak
+
+2011-01-19  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: default construction value in property parameter
 
@@ -12446,11 +13582,11 @@
 
 	gtk: stay unconnected until the FD is provided by the client
 
-2011-01-14  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-01-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build: fix distcheck
 
-2011-01-14  Daniel P. Berrange  <berrange@redhat.com>
+2011-01-15  Daniel P. Berrange  <berrange@redhat.com>
 
 	Fix rendering with GTK3
 	In GTK2 world there is an expose_event handler, so a choice
@@ -12490,6 +13626,8 @@
 	and the pkgconfig is called spice-client-gtk-3.0 too.
 
 	This allows for full parallel install of GTK2 and GTK3 builds
+
+2011-01-14  Daniel P. Berrange  <berrange@redhat.com>
 
 	Include ABI version in library names.
 	To allow easy parallel install of spice-gtk builds against GTK2
@@ -12541,9 +13679,11 @@
 
 	gtk: add some DEBUG related to migration
 
-2011-01-09  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-01-10  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: build x11 keyboard code with cairo backend
+
+2011-01-09  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build: replace echo by AC_MSG_NOTICE, that way it's logged
 
@@ -12554,13 +13694,13 @@
 
 	gtk: be more careful when accessing GDK_WINDOW_XDISPLAY
 
-2011-01-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	gtk: emit ERROR_LINK when connecting to non-spice server
 
 	gtk: fix async reading... booo, that was *really* missing
 
 	update NEWS and TODO for v0.4
+
+2011-01-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: ignore clipboard owner signal when main channel disconnected
 
@@ -12570,9 +13710,9 @@
 
 	gtk: add missing set_delay() symbol to map-file
 
-2011-01-04  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	build: help libtool/koji install client-glib before client-gtk
+
+2011-01-04  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: fix reconnection from dialog in spicy
 	Closing the session while attempting a new one is a bad idea
@@ -12778,11 +13918,11 @@
 
 	TODO: update
 
-2010-12-05  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	Merge branch 'wip/coroutines'
 
 	gtk: first stab at gtk-doc documentation
+
+2010-12-05  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: WIP coroutines playback & record
 
@@ -12847,9 +13987,9 @@
 
 	gtk: delay PA stream creation when context is ready
 
-2010-12-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	gtk: don't uncork new streams
+
+2010-12-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: save/restore spicy configuration
 	Fixes: https://bugs.freedesktop.org/show_bug.cgi?id=31991
@@ -12880,8 +14020,6 @@
 
 	gtk: add jpeg decoder
 
-2010-11-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
-
 	gtk: add zlib decoder
 
 	build: fix make -j
@@ -12889,6 +14027,8 @@
 	build: re-enable -Wflags, and fix a few warnings
 
 	build: use git-version-gen
+
+2010-11-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	README: add a few missing dependencies
 

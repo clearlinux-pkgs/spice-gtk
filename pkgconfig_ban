@@ -7,5 +7,4 @@ gtk+-win32-$with_gtk
 gtk+-x11-$with_gtk
 gtk+-$GTK_API_VERSION
 GOBJECT_INTROSPECTION
-polkit-gobject-1
 pygtk-2.0

@@ -27,6 +27,8 @@ libspice-client-glib-2.0.so.8:spice_display_gl_draw_done
 libspice-client-glib-2.0.so.8:spice_file_transfer_task_cancel
 libspice-client-glib-2.0.so.8:spice_file_transfer_task_get_filename
 libspice-client-glib-2.0.so.8:spice_file_transfer_task_get_progress
+libspice-client-glib-2.0.so.8:spice_file_transfer_task_get_total_bytes
+libspice-client-glib-2.0.so.8:spice_file_transfer_task_get_transferred_bytes
 libspice-client-glib-2.0.so.8:spice_file_transfer_task_get_type
 libspice-client-glib-2.0.so.8:spice_g_signal_connect_object
 libspice-client-glib-2.0.so.8:spice_get_option_group
