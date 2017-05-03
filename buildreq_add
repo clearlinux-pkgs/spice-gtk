@@ -4,3 +4,6 @@ libjpeg-turbo-dev
 gtk+-dev
 gobject-introspection-dev
 gobject-introspection
+lz4-dev
+opus-dev
+gstreamer-dev

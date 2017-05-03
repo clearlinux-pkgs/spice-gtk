@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.33
-Release  : 9
+Release  : 10
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.33.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.33.tar.bz2
 Summary  : SPICE Client GLib 2.0 library
@@ -19,12 +19,15 @@ BuildRequires : docbook-xml
 BuildRequires : gettext
 BuildRequires : gobject-introspection
 BuildRequires : gobject-introspection-dev
+BuildRequires : gstreamer-dev
 BuildRequires : gtk+-dev
 BuildRequires : gtk-doc
 BuildRequires : gtk-doc-dev
 BuildRequires : intltool
 BuildRequires : libjpeg-turbo-dev
 BuildRequires : libxslt-bin
+BuildRequires : lz4-dev
+BuildRequires : opus-dev
 BuildRequires : perl(XML::Parser)
 BuildRequires : pkgconfig(cairo)
 BuildRequires : pkgconfig(gio-2.0)
@@ -38,6 +41,7 @@ BuildRequires : pkgconfig(libpulse-mainloop-glib)
 BuildRequires : pkgconfig(libusb-1.0)
 BuildRequires : pkgconfig(openssl)
 BuildRequires : pkgconfig(pixman-1)
+BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(spice-protocol)
 BuildRequires : pkgconfig(usbutils)
 BuildRequires : pkgconfig(x11)
@@ -109,7 +113,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1493804004
+export SOURCE_DATE_EPOCH=1493804158
 %configure --disable-static --with-gtk=3.0
 make V=1  %{?_smp_mflags}
 
@@ -121,7 +125,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1493804004
+export SOURCE_DATE_EPOCH=1493804158
 rm -rf %{buildroot}
 %make_install
 %find_lang spice-gtk

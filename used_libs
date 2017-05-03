@@ -13,7 +13,9 @@ libgobject-2.0.so.0
 libgthread-2.0.so.0
 libgtk-3.so.0
 libjpeg.so.62
+liblz4.so.1
 libm.so.6
+libopus.so.0
 libpango-1.0.so.0
 libpangocairo-1.0.so.0
 libpixman-1.so.0
