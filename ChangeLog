@@ -1,3 +1,2011 @@
+2017-07-31  Victor Toso  <me@victortoso.com>
+
+	display-gst: Improve h264 elements filtering
+	This patch fixes the avdec_h264 element not being present on
+	gstvideo_has_codec() which get all decoder elements from GstRegistry
+	and filter them on our GstCaps in order to get the ones for given
+	codec.
+
+	The issue is around the filtering. The current GstCaps for h264 is not
+	consider a subset of avdec_h264's capabilities and that will filter
+	this element out of the list.
+
+	The proposed solution for that is to set `subsetonly` parameter from
+	gst_element_factory_list_filter() to false.
+
+	While at it, the cap "stream-format=byte-stream" is less useful now
+	because it isn't needed to play the stream - see 6fe88871240c53b8
+
+	In my system, our debug shows:
+	.. gstvideo_debug_available_decoders: From 228 video decoder elements,
+	- 4 can handle caps   image/jpeg: jpegdec, nvdec, avdec_mjpeg, vaapijpegdec
+	- 3 can handle caps  video/x-vp8: vaapidecodebin, vp8dec, avdec_vp8
+	- 4 can handle caps video/x-h264: vaapidecodebin, avdec_h264, nvdec, vaapih264dec
+	- 3 can handle caps  video/x-vp9: vaapidecodebin, vp9dec, avdec_vp9
+
+	IRC log on #gstreamer around this issue:
+
+	toso  Hi, I'm wondering if I'm getting the documentation wrong about
+	      the meaning of gst_caps_is_subset()... isn't it "video/x-h264,
+	      stream-format=3D(string)byte-stream" a subset of "video/x-h264,
+	      alignment=3D(string)au, stream-format=3D(string){ avc, byte-stream }"=
+	 ?
+	__tim toso, no, because it's missing the alignment field
+	__tim which means alignment could be anything
+	__tim which means it  might not be au
+	toso  that's a bit confusing, no?
+	__tim it's not a strict subset :)
+	toso  I really thought it would be a subset in this case.. meaning, we
+	      don't care about the aligment on _is_subset
+	__tim you can do can_intersect() if you don't care
+	slomo it's an actual subset if you define the abscence of a field as
+	      "the field can have every possible value"
+	toso  __tim: problem is that it isn't a subset on calling
+	      gst_element_factory_list_filter()
+	toso  slomo: yeah, that was my assumption on the meaning of subset
+	toso  so, just to confirm, this is the expected behavior and not a
+	      bug, right? :)
+	slomo yes
+	__tim slomo, foo, bar=3D{1,2} is not a subset of  foo, bar=3D1  is it?
+	slomo but if something does not work as expect for you, that might be
+	      a bug :)
+	slomo __tim: correct
+	slomo __tim: but foo, bar=3D1 is a subset of foo, bar=3D{1,2}
+	__tim yes
+	slomo __tim: and foo, bar=3D1 is a subset of foo
+	slomo __tim: and foo is not a subset of foo, bar=3D1
+	__tim yes. yes.
+	__tim andn the case we're talking about is basically  "foo" + "foo,
+	      bar=3D1"
+	slomo yes, the first is a superset of the second there
+	slomo toso: if something does not work for you that might also be a
+	      bug of course ;)
+	__tim ok, so not a subset.
+	__tim then we're on the same page I think :)
+	toso  slomo: right, my point was that I would like to list the h264
+	      decoders that are available and I was using `video/x-h264,
+	      stream-format=3Dbyte-stream` as input for
+	      gst_element_factory_list_filter() .. and avdec_h264 is the one
+	      not showing because it needs the aligment
+	toso  but as I got it wrong, I'll rethink on how to fix it
+	slomo toso: pass FALSE as the last argument
+	slomo and you can just use 'video/x-h264'
+	slomo and with gst_element_factory_list_get_elements() you can make
+	      sure to get only a list of video decoders to begin with
+	toso  just gst_element_factory_list_get_elements() gives me like 220
+	      elements
+	toso  using _type_decoder | _type_media_video | _type_media_image
+	slomo is that a problem?
+	toso  trying to reduce that to actual decoding elements
+	slomo they should be all actual video decoders
+	slomo and with gst_element_factory_list_filter(list, 'video/x-h264',
+	      GST_PAD_SINK, FALSE) you can then filter out all non-h264 ones
+	      dv_	is it generally ok if an audio decoder messes with the
+	      PTS/durations?
+	toso  right, let me try that then
+	toso  slomo, __tim many thanks :)
+
+	Acked-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+
+2017-07-26  leaboy  <wlbleaboy@126.com>
+
+	usbredir: fix deadlock on error
+	The current code deadlocks when a USB error occurs, releasing the
+	channel lock before the idle is called fixes this problem.
+
+	More specifically when an error occurs, we queue a call to device_error
+	in an idle, and switch to the main context. The device_error() calls
+	spice_usbredir_channel_disconnect_device() which needs the channel to be
+	unlocked as it calls spice_usbredir_channel_lock().
+
+	Examples:
+	- Redirect USB Storage device to the guest and copy some big file. While
+	  copy is ongoing, unplug the USB Storage from the client machine;
+	- Unplug the usb device from the client machine while the USB Storage
+	  device is being identified in the guest.
+	- With the auto-redirection option enabled, plug and unplug the USB
+	  Storage Device frequently.
+
+	Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1353528
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-07-26  Frediano Ziglio  <fziglio@redhat.com>
+
+	gstreamer: Take into account stride information
+	Using hardware encoders/decoders is possible that the output
+	stride of the image cannot be computed with a fixed formula
+	(width * 4). GStreamer in this case should set GstVideoMeta
+	information with the correct stride value.
+	Consider this value if present.
+	This fix a problem using NvEnc encoder and Intel decoder.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-07-25  Pavel Grunt  <pgrunt@redhat.com>
+
+	Fix build without egl
+	spice_display_widget_gl_scanout is defined only when building with egl
+	 ./.libs/libspice-client-gtk-3.0.so: undefined reference to `spice_display_widget_gl_scanout'
+
+	Fixes 977db3bb3da94def4c0e1d4087037303d250e158
+
+2017-07-21  Pavel Grunt  <pgrunt@redhat.com>
+
+	Add flatpak builder manifest file for spicy
+	To give an example for creating flatpaks depending on spice-gtk
+
+	How to build and run the flatpak:
+	spicy uses GNOME SDK runtime, version 3.24. The runtime provides tools
+	and libraries necessary to build the flatpak
+	 $ flatpak remote-add --if-not-exists gnome https://sdk.gnome.org/gnome.flatpakrepo
+	 $ flatpak install gnome org.gnome.Sdk//3.24
+
+	To build and run the flatpak of spicy:
+	 $ flatpak-builder spicy data/org.spicespace.spicy.json
+	 $ flatpak build-export repo spicy
+	 $ flatpak --user remote-add --no-gpg-verify --if-not-exists spice-repo repo
+	 $ flatpak --user install spice-repo org.spicespace.spicy
+	 $ flatpak run org.spicespace.spicy
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	Revert "Ignore modifiers messages if no modifiers changed"
+	This reverts commit 73cd553fb0fbd213b64d72f8b4289ed8a17fc6c0.
+	 "This avoid keep sending modifiers changes if guest is not
+	  synchronising the changes.
+
+	  I consider this as an improving as this avoids client to try again
+	  and again to force synchronisation however this does not prevent
+	  every unwanted keystroke insertion which possibly can be a real
+	  problem on some configurations.
+
+	  For instance if guest do not handle caps lock as the client do
+	  if client uses another modifiers (as num lock) this can force
+	  inserting virtual caps keypress."
+
+	It may be an optimization, but it complicates turning off
+	the capslock once it is enabled. The bug is reproducible
+	in rhel7/fedora guests.
+
+	https://bugs.freedesktop.org/show_bug.cgi?id=101344
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-07-21  Uri Lublin  <uril@redhat.com>
+
+	gst: new_sample: remove redundant sample? condition
+	Move the declaration and assignment of 'buffer' into
+	the if (sample) block, where sample is not NULL.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-07-18  Pavel Grunt  <pgrunt@redhat.com>
+
+	gst-audio: Do not update mmtime without real audio channel
+	The fake channel has been introduced to get the audio volume by starting
+	the gstreamer's audio pipeline and querring its volume info (see commit
+	aa8d044417bbf60685f59163b874ecb4f157c3c9).
+
+	Hovewer starting the pipeline updates the mmtime as a side effect. This
+	may cause a (big) delay in displaying a video stream.
+
+	Because the fake channel is only needed to get the volume info, make
+	sure to not update the mm-time with it.
+
+	Reported-by: Christophe de Dinechin <dinechin@redhat.com>
+	Acked-by: Christophe de Dinechin <dinechin@redhat.com>
+
+2017-07-18  Christophe de Dinechin  <dinechin@redhat.com>
+
+	spice-gtk: Use time comparisons that still work after wraparound
+	The mm timer is a millisecond timer that wraps around after ~49 days.
+	All comparisons that look like a<b will fail once this happens.
+	Instead, use signed ((int)(a-b)<0), which may fail if there is more than
+	25 days between a and b (should not be happening under normal conditions),
+	but is robust to the timer wrapping around.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-07-17  Christophe Fergeau  <cfergeau@redhat.com>
+
+	cursor: Add sanity checks for hotspot x/y values
+	The cursor hotspot values have to be inside the cursor bounding box,
+	otherwise on X11 this may cause a crash of the application using
+	spice-gtk.
+
+	This is the client-side part of
+	https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=864998
+
+	build-sys: Lower gettext requirement
+	spice-gtk currently requires gettext 0.19 which is a fairly recent
+	release (not available in el7.3 and older, nor in ubuntu 14.04 LTS).
+	They both have a gettext newer than 0.18.2, so we can require that.
+
+	Requiring 0.18 or 0.18.1 is throwing automake errors because of our use
+	of -Werror, so we side-step this by requiring 0.18.2.
+
+2017-07-17  Pavel Grunt  <pgrunt@redhat.com>
+
+	Do not update .po files with ./autogen.sh && make
+	It is enough to update them just before the release (`make dist`)
+
+	Reported-by: Victor Toso <victortoso@redhat.com>
+
+2017-07-17  Christophe Fergeau  <cfergeau@redhat.com>
+
+	build-sys: Update keycodemapdb submodule
+	This brings in 2 bug fixes, one of these is important on RHEL7 to
+	workaround an argparser bug with the python2 version it ships.
+
+2017-07-14  Pavel Grunt  <pgrunt@redhat.com>
+
+	gst: Fix build for GStreamer < 1.5.1
+	GST_DEBUG_GRAPH_SHOW_FULL_PARAMS is available since that
+
+2017-07-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	display-gst: fix format error
+	../../src/channel-display-gst.c: In function 'handle_pipeline_message':
+	../../src/channel-display-gst.c:289:75: error: format '%ld' expects argument of type 'long int', but argument 2 has type 'gint64 {aka long long int}' [-Werror=format=]
+	         gchar *filename = g_strdup_printf("spice-gtk-gst-pipeline-debug-%ld-%s",
+	                                                                         ~~^
+	                                                                         %I64d
+	                                           get_stream_id_by_stream(decoder->base.stream->channel,
+	                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	                                                                   decoder->base.stream),
+	                                                                   ~~~~~~~~~~~~~~~~~~~~~
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-07-13  Victor Toso  <me@victortoso.com>
+
+	file-xfer: Inform client of errors on init of xfer
+	With SpiceFileTransferTask we suggest that Spice clients watch
+	(signal) SpiceMainChannel::new-file-transfer so they can follow the
+	transfer's progress till the moment it is finished.
+
+	The signal SpiceFileTransferTask::finished informs if an error happens
+	to the application.
+
+	This patch solves the problem of SpiceFileTransferTask::finished not
+	being emitted when the agent is not connected nor when file-transfer
+	is disabled in the host.
+
+	We should first emit SpiceMainChannel::new-file-transfer followed up
+	by SpiceFileTransferTask::finished, which is done by the function
+	spice_file_transfer_task_completed().
+
+	As channel-main chains up the "finish" signal by removing the
+	SpiceFileTransferTask from its GHashTable, we have to change from
+	GHashTableIter to a simple GList of keys.
+
+	Related: https://bugzilla.redhat.com/show_bug.cgi?id=1373830
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-07-13  Yuri Benditovich  <yuri.benditovich@daynix.com>
+
+	win-usb-dev: fix device arrival event logic
+	https://bugzilla.redhat.com/show_bug.cgi?id=1425961
+	If attached new device when one device with the same vid
+	and pid already present, the notification is ignored and
+	attached device is not redirected (if auto share set) and
+	not displayed in USB devices widget.
+
+	This commit reverts older commit f9631cd6f8, which was
+	intended to solve problem when bus:addr is sometimes changed when
+	using WinUSB. The same commit creates the limitation for automatic
+	redirection of second device with the same pid:vid.
+	Now the preferred backend for Spice-GTK on Windows is UsbDk.
+	In case users of newer WinUSB will still need backward compatible
+	behavior, consider backend-aware comparison procedure.
+
+	A device is now identified again by its bus.addr instead of vid:pid.
+
+	Message-Id: <1499232106-16448-1-git-send-email-yuri.benditovich@daynix.com>
+	Acked-by: Uri Lublin <uril@redhat.com>
+	[ Marc-André - Added commit comment from Uri's review. ]
+
+2017-07-12  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	Release notes for v0.34
+
+	build-sys: update po files
+	As a result of make update-po (needed for make clean distcheck).
+
+	build-sys: modernize gettext
+	intltool and glib-gettext are somehow related, and upstream gettext
+	should now support everything needed for GNOME projects.
+
+	intltool support never really worked, and we removed some of its
+	commented usage a while ago when dropping spicy desktop/mime.
+
+	build-sys: use git.mk GITIGNORE_*
+
+2017-07-11  Victor Toso  <me@victortoso.com>
+
+	display-gst: Debug video pipeline on stream-start message
+	On GST_MESSAGE_STREAM_START our stream is about to start and it seems
+	a good moment to debug GStreamer pipeline if requested.
+
+	That we can do with GST_DEBUG_BIN_TO_DOT_FILE() which iterates
+	recursively in the whole pipeline and generates a dot file with all
+	the information, the filename is:
+	  spice-gtk-gst-pipeline-debug-$stream_id-$video_codec.dot
+
+	One can generate png image out of this dot file with the command:
+	  dot -Tpng -oimage.png spice-gtk-gst-pipeline-debug.dot
+
+	Note that GST_DEBUG_BIN_TO_DOT_FILE() will only work if Gstreamer was
+	configured with --gst-enable-gst-debug and the environment variable
+	GST_DEBUG_DUMP_DOT_DIR was properly set.
+
+	Full example:
+
+	1) GST_DEBUG_DUMP_DOT_DIR=/tmp remote-viewer ...
+	2) dot -Tpng -oimage.png spice-gtk-gst-pipeline-debug.dot
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	channel-display: keep one struct array for video-codecs data
+	On channel-display.c, for each SpiceVideoCodecType we need:
+	 - Its enum type;
+	 - The associated capability;
+	 - A name;
+
+	On channel-display-gst.c, for each SpiceVideoCodecType we need:
+	 - Associated decoding elements for the pipeline;
+	 - Associated GstCaps, also for the video pipeline;
+
+	Follow up patch will need the associated name for given
+	SpiceVideoCodecType.
+
+	Moving gst_opts[] array to channel-display-priv.h to be reused. This
+	should also make slightly simpler when supporting a new video codec in
+	the future.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-07-11  Pavel Grunt  <pgrunt@redhat.com>
+
+	usb-manager: Fix docstring annotation
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-07-10  Victor Toso  <me@victortoso.com>
+
+	display-gst: Use Playbin for GStreamer 1.9.0 onwards
+	The Playbin can provide the full pipeline which reduces the
+	overall maintenance in the code as we don't need to track which
+	decoder can work with our stream type.
+
+	We need to maintain the GstCaps per SPICE_VIDEO_CODEC_TYPE in order to
+	tell Playbin the type of data we expect. This much should be covered
+	by spice-protocol and very likely we will need to extend it in the
+	future to allow more settings that might not possible to verify at
+	runtime.
+
+	This patch keeps previous code for compatibility reasons.
+
+	Note that we have to wait Playbin to emit "source-setup" in order to
+	configure GstAppSrc with the capabilities of input stream. If in the
+	unlikely event of frames arriving while GstAppSrc is not setup, we
+	will drop those frames.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	display-gst: check GstRegistry for decoding elements
+	With this patch, we can find all the elements in the registry that are
+	video decoders which can handle the predefined GstCaps.
+
+	Main benefits are:
+	- We don't rely on a predefined list of GstElements. We don't need to
+	  update them;
+	- debugging: It does help to know what the registry has at runtime;
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	display-gst: move "caps=" from struct to pipeline
+	This way we have a map of the necessary GstCaps to a given
+	SPICE_VIDEO_CODEC_TYPE.
+
+	This patch is also a preparatory patch to:
+
+	- Identify which GstElements in GstRegistry can handle this GstCaps
+
+	- Use Playbin as wrapper to all elements beside GstAppSrc and
+	  GstAppSink. In this case, we should rely on GstCaps to reduce
+	  typefind errors as we should know what kind of data is expected
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	display-gst: include capabilities for h264
+	As the comment states, incomplete GstCaps for h264 could trigger
+	errors in h264parse element, such as:
+
+	  gst_h264_parse_set_caps: video/x-h264 caps without
+	  codec_data or stream-format
+
+	This would make h264parse to ignore the capabilities that were set.
+
+	As spice-server is encoding as byte-stream it should be fine to set
+	this value here too.
+
+	Any other errors to h264 format should either be reported to
+	GStreamer or fixed by improving the spice-protocol.
+
+	The follow up patch will identify elements in GstRegistry based on
+	GstCaps so this is a necessary change to have.
+
+	This is also a preparatory patch to use Playbin element to create the
+	pipeline. Without this, Playbin or typefind will fail to recognize the
+	stream as H264.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	display-gst: remove SPICE_GSTVIDEO_AUTO check
+	The intention behind SPICE_GSTVIDEO_AUTO environment variable was to
+	easily test the decoding elements given by GStreamer while using the
+	decodebin element in our pipeline.
+
+	The usage of decodebin was disabled by default as it could trigger
+	different issues such as the usage of unstable vaapi elements [0].
+
+	[0] See: https://bugs.freedesktop.org/show_bug.cgi?id=90884
+
+	A follow-up patch will use playbin to create the pipeline. Playbin is
+	very similar to decodebin but it'll provide the whole pipeline which
+	should bring less maintenance to spice-gtk.
+
+	Further notes:
+	- Vaapi elements are more stable now and it should not be a problem to
+	  use it.
+	- At this moment, there is no automatic enforcement from spice-gtk to
+	  make usage of any video-codecs besides mjpeg. Application would need
+	  to send preferred-video-codec-type message to trigger video decoding
+	  with GStreamer.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	display-gst: check codec type before creating decoder
+	Inserting this check in channel-display-gst.c as the GStreamer decoder
+	is the only one handling all the different video formats supported by
+	spice-protocol.
+
+	If a unsupported/bad codec type value was sent, spice-gtk will fail to
+	create the decoder and any messages related to this stream-id will be
+	ignored.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-06-30  Pavel Grunt  <pgrunt@redhat.com>
+
+	spice-channel: Factor out code for storing caps
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-06-29  Pavel Grunt  <pgrunt@redhat.com>
+
+	spice-channel: Store the caps correctly
+	The commit babe5630d5d3242b1d186cccdd5b4d51debe78e9 forgot to update
+	position of the caps pointer making remote caps to not be stored.
+
+	That cause strange behavior in remote-viewer - it always opened window
+	for each remote display.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-06-26  Pavel Grunt  <pgrunt@redhat.com>
+
+	usb-device-widget: Fix parent class type
+	The widget is defined as GTK_TYPE_BOX, use GtkBox instead of GtkVBox.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-06-22  Jakub Janků  <janku.jakub.jj@gmail.com>
+
+	main: Handle file-xfer detailed errors
+	Log appropriate error messages when we receive
+	VD_AGENT_FILE_XFER_STATUS_SESSION_LOCKED,
+	VD_AGENT_FILE_XFER_STATUS_VDAGENT_NOT_CONNECTED,
+	VD_AGENT_FILE_XFER_STATUS_DISABLED.
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-06-20  Christophe de Dinechin  <dinechin@redhat.com>
+
+	Remove warning about unused variable when building on macOS
+	On macOS, neither of the two cases implemented in set_mouse_accel applies.
+	We get the following eror message:
+
+	  CC       spice-widget.lo
+	spice-widget.c:944:26: error: unused variable 'd' [-Werror,-Wunused-variable]
+	    SpiceDisplayPrivate *d = display->priv;
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	Avoid clang warnings on casts with stricter alignment requirements
+	For example, something like this:
+	    uint8_t  *p8;
+	    uint32_t *p32 = (uint32_t *) p8;
+
+	generates a warning like this:
+	  spice-channel.c:1350:10: error: cast from 'uint8_t *' (aka 'unsigned char *') to
+	      'uint32_t *' (aka 'unsigned int *') increases required alignment from 1 to
+	      4 [-Werror,-Wcast-align]
+
+	The warning indicates that we end up with a pointer to data that
+	should be 4-byte aligned, but its value may be misaligned. On x86,
+	this does not make much of a difference, except a relatively minor
+	performance penalty. However, on platforms such as older ARM, misaligned
+	accesses are emulated by the kernel, and support for them is optional.
+	So we may end up with a fault.
+
+	The intent of the fix here is to make it easy to identify and rework
+	places where actual mis-alignment occurs. Wherever casts raise the warning,
+	they are replaced with a macro:
+
+	- SPICE_ALIGNED_CAST(type, value) casts value to type, and indicates that
+	  we believe the resulting pointer is aligned. If it is not, a runtime
+	  warning will be issued if you configure with --enable-alignment-warnings.
+
+	- SPICE_UNALIGNED_CAST(type, value) casts value to type, and indicates that
+	  we believe the resulting pointer is not always aligned. A debug message
+	  is issued if you configure with --enable-alignment-warnings.
+
+	Any code using SPICE_UNALIGNED_CAST may need to be revisited in order
+	to improve performance, e.g. by using memcpy. A few easy fixes have been
+	made in his patch.
+
+	Add check for macOS and macOS specific define to allow ucontext
+
+	Remove trailing space
+
+2017-06-20  Pavel Grunt  <pgrunt@redhat.com>
+
+	Unrealize egl display only if it has context
+	Avoids a critical to be logged when closing remote-viewer:
+	 "gl_make_current: assertion 'd->egl.context_ready' failed"
+
+	Allow to build without X11 gdk backend
+
+2017-06-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	option: deprecate a few esoteric options from --spice group
+	I propose to deprecate the options that have very unclear results, or
+	that are unimplemented by drivers. They were added for historical
+	reasons, mostly to match with spicec options, but aren't
+	user-friendly. Some of them could be moved in spicy options or a new
+	debug/tune option group. For now, mark them as deprecated so they can
+	be removed in a future release.
+
+	Imho, --spice-preferred-compression is a good candidate too, although
+	users may be more familiar with this option, at least the 'off' case
+	may have a clear impact.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-06-15  Snir Sheriber  <ssheribe@redhat.com>
+
+	Grab keyboard based on focus in windows client
+	Currently the client grabs keyboard based on session focus, on windows
+	environment gtk sends grab_broken if wm_killfocus is received (when
+	focus is changed) while the application has the grab. It means that
+	when grab is based on the session, clicking inside focusless window
+	will cause wm_killfocus to be sent towards the focused window, this
+	will generate grab_broken event which follows by no grab at all.
+
+	This patch expands the solution presented in 143ebfd to work also on
+	windows client without causing grab_broken event.
+	This is implemented a bit differently from linux, if on mouse entrance
+	session already has focus, focus will be set to the current window,
+	this will generate focus events that will release and take grab again
+	without grab_broken event.
+
+	Resolves: rhbz#1429611
+	Related: rhbz#1275231
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-06-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	util: replace SPICE_BYTESWAP16 with GUINT16_SWAP_LE_BE
+	SPICE_BYTESWAP* macros where introduced at a time when spice didn't
+	depend on glib (that feels quite long ago). Those macros seem to be
+	copied & adapted from glib.
+
+	In any case, that's the only direct user in spice-gtk, we can use the
+	glib version instead, so one day SPICE_BYTESWAP* could eventually be
+	removed.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	build-sys: replace SPICE_DEPRECATED with G_DEPRECATED
+	The generic G_DEPRECATED* macros got introduced in 2.32, and spice-gtk
+	depends on 2.36. We can drop our own.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	build-sys: remove -DSPICE_DISABLE_ABORT
+	spice-gtk doesn't use spice_abort().
+
+	SPICE_DISABLE_ABORT was mostly used to change default abort behaviour
+	on criticals in spice-common, but since it works fine without this
+	flag since 2012 (commit 05a203af120016), we can safely remove that
+	unused define from spice-gtk.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	widget: switch 'display' type to DisplayChannel*
+	This avoids the long casts. The Channel* type is less commonly used.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	widget: call gl-draw when skipping draw
+	It's a bad idea to hold the GL scanout for a long time, especially in
+	error cases. (fwiw, qemu has 1s tolerance before complaining, and the
+	guest is most likely going to hang meanwhile, stuck on the GPU)
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	widget: skip spice_egl_resize_display() if context is not ready
+	And call spice_egl_resize_display() when initializing the context.
+
+	The display must not call spice_egl_resize_display() if the egl/gl
+	context isn't ready. set_egl_enabled() is called whenever we get gl
+	drawing command from spice server. But the egl/gl context may not be
+	ready at that time. That function must still be run to switch the
+	display to GL, but has to delay any GL call to after the GL context is
+	realized.  Add spice_egl_resize_display() there, to do the remaining
+	egl setup.
+
+	This fixes the "Couldn't find current GL or GLX context" error for me
+	on X11. I thought first it was somehow related to commit a395ac59447de
+	"spice-widget: init egl only after first gl_scanout", but reverting it
+	didn't solve the problem, there are other timing changes, probably at
+	gtk level.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	egl: add a precondition on gl_make_current()
+	To ease with debugging GL issues.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-06-07  Frediano Ziglio  <fziglio@redhat.com>
+
+	fix check for 16 bit cursor mask
+	The size was computed using a 32 bit image while the cursor was
+	just 16 bit. This caused the usage of some invalid bit mask (the
+	bit mask is used to understand where the cursor is transparent).
+	This was clearly visible as the mouse cursor was usually mostly
+	black with some apparently random transparent pixels.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-05-31  Jakub Janků  <janku.jakub.jj@gmail.com>
+
+	main: Handle lack of free space for file transfer
+	Agent can send FileXferStatusMessage with result
+	VD_AGENT_FILE_XFER_STATUS_NOT_ENOUGH_SPACE together with info about
+	amount of available free space when the file to transfer is too large
+	and the client announces support of this result by sending
+	VD_AGENT_CAP_FILE_XFER_DETAILED_ERRORS
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-05-31  Frediano Ziglio  <fziglio@redhat.com>
+
+	Use cursor->data instead of row data
+	data and cursor->data contains the same data (see the memcpy
+	above) but data is not aligned to uint32_t and require also
+	additional casts. Using cursor->data avoid these issues.
+
+	Acked-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+
+	Remove link_msg from _SpiceChannelPrivate
+	The field is used only to initialize a buffer allocated
+	inside spice_channel_send_link
+
+	Acked-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+
+2017-05-31  Christophe de Dinechin  <dinechin@redhat.com>
+
+	Avoid warning about snprintf on non-Linux platforms
+	Without #include <stdio.h>, calls to snprintf in the file
+	cause a warning. The file <unistd.h> is left aside on purpose,
+	since src/usbutil.c may be compiled on Windows where this
+	file does not exist.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-05-29  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget: Return early on cursor set without shape
+	A cursor pixbuf is required in other functions to work properly
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-05-26  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget: Set cursor during construction
+	In a multimonitor environment can easily happen that a cursor is set
+	before some of the SpiceDisplays are created. IOW the first created
+	SpiceDisplay has the cursor but others don't.
+
+	To avoid the issue set the initial cursor using the "cursor" property
+	of the SpiceCursorChannel.
+
+	Resolves:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1411380
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	Deprecate "cursor-set" signal
+	Use cursor notify instead
+
+	Related:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1411380
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	cursor: Add cursor shape property
+	It provides information about the remote cursor similar to the signal
+	"cursor-set". The benefit over the signal is that the property can be
+	queried at any time.
+
+	Users of the "cursor-set" signal should migrate to "notify::cursor".
+
+	Related:
+	https://bugzilla.redhat.com/show_bug.cgi?id=1411380
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-05-25  Victor Toso  <me@victortoso.com>
+
+	gtk-session: move variables to internal scope
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	gtk-session: move atom's debug
+	We already iterate in all n_atoms and get its name with
+	gdk_atom_name(), let's move the debug there too;
+
+	While at it, move the generic SPICE_DEBUG of the function to the top.
+	It should help us identify when the function was triggered but not
+	used due the early returns.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	gtk-session: do an early check of clipboard grab
+	As we will not be doing anything in case clipboard is already grabbed
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	gtk-session: use clear variable for array's size
+	By using 'num_types' variables, we have a clear variable with a clear
+	purpose: It will track the number of VD_AGENT_CLIPBOARD types we are
+	storing in types[] array.
+
+	This new variable helps:
+	- removing one 'for' loop which was counting the number stored types;
+	- doing fewer iterations in one 'for' loop
+
+	A few extra comments were included to clarify what the logic should be
+	doing and a extra debug was included to point out situations where the
+	desktop has sent us valid clipboard data but none will be sent the
+	guest.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-05-23  Victor Toso  <me@victortoso.com>
+
+	spicy: add gstreamer options to command line
+	So we can see all available options with spicy --help-gst and set them
+	as command line argument.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-05-16  Christophe Fergeau  <cfergeau@redhat.com>
+
+	glz: Remove unused DECODE_TO_SAME array
+	This also removes the generation of unneeded _decode methods once this
+	array is removed (this causes some warnings otherwise).
+
+	DECODE_TO_SAME was used in the old client, but was never used when this
+	code was moved over to spice-gtk.
+
+2017-05-16  Pavel Grunt  <pgrunt@redhat.com>
+
+	doc: Rename argument to match docstring
+	Otherwise it appears in undocumented symbols.
+
+	Fixup to f076dd11ce4c83b09350e372307c23c486905d34
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-05-15  Pavel Grunt  <pgrunt@redhat.com>
+
+	doc: Display properties of spice-gtk classes
+	It is done by putting their symbols in appropriate sections
+
+	doc: Describe spice_usb_device_manager_disconnect_device_async
+
+	doc: Describe spice_gl_scanout_free
+
+	doc: Remove invalid parameter of property
+	Probably copy'n'pasted from the signal description
+
+	doc: Set correct label
+	Otherwise it does not appear in the generated documentation
+
+2017-05-12  Pavel Grunt  <pgrunt@redhat.com>
+
+	configure: Fix typo in epoxy checking
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-05-09  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Separate the network code from the display_stream management
+	This makes it easier to reuse display_streams for other types of
+	video streams should the need arise.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	streaming: Remove the video decoder's dependency on SpiceMsgIn messages
+	This improves the separation between networking and the video decoding
+	components.
+	It also makes it easier to reuse the latter should the client one day
+	receive video streams through other messages.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	streaming: Rename SpiceFrame to SpiceGstFrame in the GStreamer decoder
+	This emphasizes that this structure is specific to the GStreamer
+	decoder.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	streaming: Move SpiceMsgIn parsing to display_handle_stream_create()
+	This regroups all the parsing in one place and makes the rest of the
+	display_stream code independent from the network messaging details.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	streaming: Document the GStreamer decoding process
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2017-05-09  Christophe de Dinechin  <dinechin@redhat.com>
+
+	build: Check for epoxy/egl.h availability
+	This header is not present on OSX. This added check allows to make the
+	EGL code conditionally compiled depending on egl.h availability rather
+	than only disabling it for win32 builds.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-05-02  Christophe de Dinechin  <dinechin@redhat.com>
+
+	Fix unsatisfied symbol from export list if USE_USBREDIR is not set
+	Without this fix, we get the following error message on macOS:
+
+	Undefined symbols for architecture x86_64:
+	  "_spice_usb_device_get_libusb_device", referenced from:
+	     -exported_symbol[s_list] command line option
+
+	The function is defined under `#ifdef USE_USBREDIR`, but is always exported
+	in spice-glib-sym-file.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-04-26  snir sheriber  <ssheribe@redhat.com>
+
+	Remove redundant space from error message
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-04-20  Yuri Benditovich  <yuri.benditovich@daynix.com>
+
+	usb-device-manager: Do not hide devices on client if USB redirection disabled
+	https://bugzilla.redhat.com/show_bug.cgi?id=1431137
+	When auto sharing of USB devices is enabled in remote-viewer's configuration
+	file, Windows spice client hides connected USB devices on client machine even
+	if USB redirection is disabled by --spice-disable-usbredir.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-04-18  Victor Toso  <me@victortoso.com>
+
+	file-xfer: Fix bad filename encoding
+	Manual for G_FILE_ATTRIBUTE_STANDARD_NAME states:
+	 > The name is the on-disk filename which may not be in any known
+	 > encoding, and can thus not be generally displayed as is.
+
+	Considering a file named "ěščřžýáíé", if we use
+	G_FILE_ATTRIBUTE_STANDARD_NAME to get the file name, we will have the
+	following 72 bytes long string:
+	"\xc4\x9b\xc5\xa1\xc4\x8d\xc5\x99\xc5\xbe\xc3\xbd\xc3\xa1\xc3\xad\xc3\xa9"
+
+	This is a regression introduced at 4647ac9a2a72c98b6841180ccf5f8d
+
+	Possible solutions are:
+	1) Using G_FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME attribute;
+	2) Using g_file_info_get_attribute_byte_string() function;
+	3) Using the g_file_get_basename() which was used before 4647ac9a2a72c9
+
+	Using option 2 based on better long term solution.
+	This give us the correct 18 bytes long utf-8 string to "ěščřžýáíé"
+
+	Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1440206
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-04-11  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	Add default .gitpublish profile
+	Can be quite handy for git-publish users like me.
+	(https://github.com/stefanha/git-publish)
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	build-sys: update git.mk
+	Reviewed-by: Victor Toso <victortoso@redhat.com>
+
+	build-sys: update spice-common submodule
+	- log: Follow spice style guidelines for #include in log.h
+	- log: Add missing stdio.h include
+	- build-sys: don't dist spice-protocol.html
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-03-28  Victor Toso  <me@victortoso.com>
+
+	audio: debug audio codec when audio stream starts
+	We already debug a few parameters but the audio codec is missing.
+
+	Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1436249
+	Acked-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+
+2017-03-28  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	Revert "build-sys: update git.mk"
+	This reverts commit 243357cbc18db92b2b301c4c89ee9431fd12e0b1.
+
+	Revert "build-sys: remove intltool"
+	This reverts commit c13b3eb0c4773edbe2d26a8f9732f305eeb342ce.
+
+	build-sys: remove intltool
+	It never really worked, and we removed some of its commented usage a
+	while ago when dropping spicy desktop/mime.
+
+	build-sys: update git.mk
+
+2017-03-27  snir sheriber  <ssheribe@redhat.com>
+
+	authentication: Handle failed spice authentication
+	Changing the name of the failures handling function (spice
+	and sasl authentication failures are now treated separately)
+	and display more suitable spice authentication failure error
+	message.
+
+	Resolves: rhbz#1365736
+
+	authentication: Handle failed SASL authentication separately
+	Move SASL authentication failures handling to a separate
+	function.
+
+	Multiple error messages asking for username\password were
+	removed because they are not necessarily the reason for the
+	failure (avoiding similar issue as in rhbz#1365736).
+	Letting the user know about required username\password
+	should be achieved by setting specific Gerror's error code
+	and enabling\disabling the username\password fields
+	accordingly by the application.
+
+2017-03-27  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget: Always call gtk_widget_show_all
+	Since spice-gtk 0.32 SpiceDisplay widget internally has changed
+	from the GtkDrawingArea to a GtkContainer.
+
+	Per gtk_widget_show documentation:
+	 "Remember that you have to show the containers containing a widget,
+	  in addition to the widget itself, before it will appear onscreen."
+
+	Let's always call gtk_widget_show_all, not just for gtk+ >= 3.16
+	otherwise you may get a blackscreen with spice-gtk compiled against
+	an old gtk+ version.
+
+	Fixes:
+	https://bugs.freedesktop.org/show_bug.cgi?id=100251
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-03-27  Victor Toso  <me@victortoso.com>
+
+	channel-webdav: include comment about message handling
+	Channel-webdav does not handle any other message besides
+	SPICE_MSG_SPICEVMC_DATA it wants to let SpiceVmcInputStream handle it
+	and the same to deal when sending data to the server with
+	SPICE_MSGC_SPICEVMC_DATA using SpiceVmcOutputStream.
+
+	The other Spice messages are dealt in its parent class channel-port
+	and handled in channel-webdav handling port-event signal.
+
+	This patch also renames webdav_handle_msg -> webdav_handle_data_msg
+	for the reason described above.
+
+	Reviewed-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+
+2017-03-24  Pavel Grunt  <pgrunt@redhat.com>
+
+	Use macro for more precise widget debugs
+	DISPLAY_DEBUG provides information about channel and monitor ids.
+	In case of multimonitor it helps to identify the owner of the debug
+	message.
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	widget: Extend mouse mode debug
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-03-23  Pavel Grunt  <pgrunt@redhat.com>
+
+	widget: Use deprecated function to ungrab device
+	Avoid broken grab (alt+tab not working), regression since
+	 ef7a6fa1798c8e53c0b77330b398a78181cf90e5
+
+	Currently it is not possible to ungrab just keyboard/mouse
+	using GdkSeat functions:
+	 https://bugzilla.gnome.org/show_bug.cgi?id=780133
+	Use deprecated gdk_device_ungrab to do it
+
+	Acked-by: Snir Sheriber <ssheribe@redhat.com>
+
+2017-03-13  Victor Toso  <me@victortoso.com>
+
+	Revert "channel-display: new stream-video-codec-type property"
+	This reverts commit 00f56647a97a95342f235ef6d107ac8216aa9e49.
+
+	As this take no consideration to multiple streams.
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	Revert "spicy: improve status label with stream information"
+	This reverts commit 9a7ae78aa94f4eada3fa85e9fd7dfac681aadd6d.
+
+	As we are going to revert 00f56647a97a95 "channel-display: new
+	stream-video-codec-type property"
+
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	spicy: improve status label with stream information
+	By using stream-video-codec-type property, we can display which
+	video-codec is being used.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	spicy: keep status of mouse/agent on server mode
+	So we can still check the agent status even in server mode.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	channel-display: new stream-video-codec-type property
+	This is a per channel-display property that stores and notifies the
+	video-codec type being used if a stream is being used or 0 if there is
+	no ongoing stream.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-03-13  Pavel Grunt  <pgrunt@redhat.com>
+
+	README: Update link to virt-viewer
+	Acked-by: Snir Sheriber <ssheribe@redhat.com>
+
+2017-03-13  snir sheriber  <ssheribe@redhat.com>
+
+	Adding test to gitlab ci
+	Disable some capabilities and try make
+
+	Add .gitlab-ci.yml
+
+2017-03-10  Victor Toso  <me@victortoso.com>
+
+	gstaudio: Remove fixed TODOs about setting record volume
+	* directsoundsrc doesn't support IDirectSoundBuffer_SetVolume
+
+	This was fixed by 1b564bfb8b0db in gst-plugins-bad, see:
+	https://bugzilla.gnome.org/show_bug.cgi?id=744383
+
+	* pulsesrc doesn't support volume property, it's all coming!
+
+	This was fixed by 1f4bb687940f87a0 in gst-plugins-good, see:
+	https://bugzilla.gnome.org/show_bug.cgi?id=595055
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-03-10  Pavel Grunt  <pgrunt@redhat.com>
+
+	main: Handle disabled file transfer
+	File transfer can be disabled by the server or agent, it is
+	signalized by the VD_AGENT_CAP_FILE_XFER_DISABLED set.
+
+	Do not try to transfer files when the capability is set.
+
+	Related: rhbz#1373725
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	build-sys: Use AM_PATH_PYTHON to find PYTHON interpreter
+	It is more suitable for the task than AC_PATH_PROGS
+	Also it prevents us from forcing a version of Python
+
+	https://www.gnu.org/software/automake/manual/html_node/Python.html
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+	Acked-by: Marc-André Lureau <mlureau@redhat.com>
+
+	m4: Drop unused AM_CHECK_PYTHON_HEADERS
+	Unused since we dropped python bindings
+	0917002c48a0a5deb615d120a0e5997eefc89fd4
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	Update submodules
+	Allow to compile without warnings with the new OpenSSL
+	Add missing import in the keymap generator
+
+	spice-common:
+	Frediano Ziglio (1):
+	      region: Avoid possible memory corruption
+
+	Jonathon Jongsma (1):
+	      Document REGION_TEST_* bitmasks
+
+	Sebastian Andrzej Siewior (1):
+	      ssl: Use ASN1_STRING_get0_data instead of ASN1_STRING_data
+
+	keycodemapdb:
+	Daniel P. Berrange (1):
+	      Add ability to generate Perl POD docs for key map names & values
+
+	Pavel Grunt (1):
+	      keymap-gen: Import sys
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	dist: Keep generated keymaps
+	spice-gtk does not have to require python
+
+	Regression since 271222e2217bf82644d87649b43b920240430f8
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-03-10  Christophe Fergeau  <cfergeau@redhat.com>
+
+	doc: Mention python in the git build requirements
+
+	doc: Remove perl(Text::CSV) references
+	It's no longer used since commit e271222e "Switch over to using
+	keycodemapdb submodule"
+
+2017-03-06  Victor Toso  <me@victortoso.com>
+
+	spicy: use gboolean for GtkSettings properties
+	As gboolean is 4 bytes long while bool is 1 byte, valgrind will complain
+	about it.
+
+	Invalid write of size 4
+	   at 0xAE9F4FB: value_lcopy_boolean (gvaluetypes.c:78)
+	   by 0xAE7CFD3: g_object_get_valist (gobject.c:2236)
+	   by 0xAE7D40B: g_object_get (gobject.c:2324)
+	   by 0x40758F: keyboard_grab_cb (spicy.c:566)
+	   by 0xAE753E4: g_closure_invoke (gclosure.c:804)
+	   by 0xAE87431: signal_emit_unlocked_R (gsignal.c:3635)
+	   by 0xAE9005E: g_signal_emit_valist (gsignal.c:3391)
+	   by 0xAE9043E: g_signal_emit (gsignal.c:3447)
+	   by 0x4E4A6FB: try_keyboard_grab (spice-widget.c:889)
+	   by 0x4E4CAB1: focus_in_event (spice-widget.c:1834)
+	   by 0x9325E70: _gtk_marshal_BOOLEAN__BOXEDv (gtkmarshalers.c:131)
+	   by 0xAE75561: _g_closure_invoke_va (gclosure.c:867)
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-03-06  Daniel P. Berrange  <berrange@redhat.com>
+
+	Switch over to using keycodemapdb submodule
+	Consume the keymaps.csv file from a git submodule instead of having
+	a private copy. This makes it easier to ensure all users of the keymap
+	(libvirt, gtk-vnc, spice-gtk, and eventually QEMU) to have a consistent
+	set of data.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-03-06  Pavel Grunt  <pgrunt@redhat.com>
+
+	spicy: Add dialog for precise resizing
+	It helps when testing whether the guest resizes to requested resolution
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-03-02  Victor Toso  <me@victortoso.com>
+
+	spice_channel_read_wire: move variables to internal scope
+	And avoid single line if plus comment
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	spice_channel_read_wire: prefer while(TRUE) instead of goto
+	Although this is likely to be a single loop iteration based on the
+	implementation of g_coroutine_socket_wait(), using goto to reiterate
+	in the code should be avoided based on spice style recommendation.
+
+	This also make it easier to add follow up changes that can increase
+	the loop iterations.
+
+	This patch changes:
+	 * The reread label with a while(TRUE);
+	 * The goto keyword with continue;
+
+	All other changes are only related to new indentation.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	spice-channel: move out non blocking logic of _flush_wire()
+	This patch introduces spice_channel_flush_wire_nonblocking() helper
+	without changing any logic.
+
+	Related: https://bugs.freedesktop.org/show_bug.cgi?id=96598
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	spice-channel: move out non blocking logic of _read_wire()
+	This patch introduces spice_channel_read_wire_nonblocking() helper
+	without changing any logic.
+
+	Related: https://bugs.freedesktop.org/show_bug.cgi?id=96598
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-03-02  Pavel Grunt  <pgrunt@redhat.com>
+
+	spice-display: Check validity of cursor before unref
+	Since 62f9144d6c5ac06cd76b76176644622c43c08541 the mouse cursor
+	is created when the widget is realized. The unref must be prevented.
+
+	The issue can happen when connecting using remote-viewer to
+	a multimonitor VM.
+
+2017-03-01  Victor Toso  <me@victortoso.com>
+
+	display-mjpeg: free queue
+	24 bytes in 1 blocks are definitely lost in loss record 4,300 of 14,518
+	   at 0x4C2DB9D: malloc (vg_replace_malloc.c:299)
+	   by 0xB12C5B8: g_malloc (gmem.c:94)
+	   by 0xB144B12: g_slice_alloc (gslice.c:1025)
+	   by 0xB14513D: g_slice_alloc0 (gslice.c:1051)
+	   by 0x50EE096: create_mjpeg_decoder (channel-display-mjpeg.c:310)
+	   by 0x50B5ACC: display_handle_stream_create (channel-display.c:1230)
+	   by 0x50AAEE3: spice_channel_handle_msg (spice-channel.c:3014)
+	   by 0x50A7AE4: spice_channel_recv_msg (spice-channel.c:2024)
+	   by 0x50A829D: spice_channel_iterate_read (spice-channel.c:2262)
+	   by 0x50A84B0: spice_channel_iterate (spice-channel.c:2300)
+	   by 0x50A926B: spice_channel_coroutine (spice-channel.c:2588)
+	   by 0x50F0D10: coroutine_trampoline (coroutine_ucontext.c:63)
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-02-27  Victor Toso  <me@victortoso.com>
+
+	gtk-session: initialize array without memset
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	gtk-session: check if retrieving clipboard data failed
+	In case of failure, the GdkAtom *atoms will be set to NULL.
+	Including this check to an early return.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	gtk-session: always reply to agent's clipboard request
+	This fixes a regression from 7b0de6217670e0f668aff2949f
+
+	We need to reply back to the agent all clipboard requests even in case
+	of failure otherwise it will have a pending request. The following
+	error message can be seen afterwards, in the linux agent, when client
+	sends down some clipboard data:
+
+	 > clipboard: selection requests pending on clipboard ownership
+	 > change, clearing
+
+	An easy way to reproduce this is:
+	1-) In client, copy image from lo-draw (selection or ctrl+c)
+	2-) In guest, paste it to GEdit (mouse3 our ctrl+v)
+	3-) Move to the client
+	4-) Move back to the guest
+	5-) see error on vdagent logs
+
+	The reason for failure is that client's clipboard contains different
+	data type (image) then what was requested from guest's editor (text)
+
+	While at it, include extra debug message as it might be hard to
+	identify why clipboard did not work.
+
+	Resolves: rhbz#1409854
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-02-27  Francois Gouget  <fgouget@codeweavers.com>
+
+	spicy: Spicy uses GTK+ and must link with it
+	This avoids having the linker complain that gtk_toggle_action_get_type()
+	or some other GTK+ API is undefined.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	spicy-stats: spicy-stats uses libgobject so link with it
+	This avoids having the linker complain that g_signal_connect_data() or
+	some other GObject API is undefined.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-02-22  Victor Toso  <me@victortoso.com>
+
+	gtk-session: Use GWeakRef
+	The custom WeakRef structure was introduced in 9baba9fd89 (2012) to
+	fix rhbz#743773. Since glib 2.32, GWeakRef was introduced and it
+	behaves similarly to our WeakRef.
+
+	Moving to GWeakRef to remove some code which exists in glib.
+
+	Note that I'm keeping two utility functions:
+	- get_weak_ref(gpointer object): which returns a newly allocated
+	  GWeakRef, initialized with @object;
+	- free_weak_ref(gpointer pdata): which frees the GWeakRef and returns
+	  the original object or NULL. It also takes care of an extra
+	  reference to the object.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-02-21  Pavel Grunt  <pgrunt@redhat.com>
+
+	gtk: Avoid deprecated gdk_pointer_grab
+	gdk_pointer_grab() was deprecated in 3.0 for gdk_device_grab()
+	but that was also deprecated for gdk_seat_grab() in 3.20
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	gtk: Avoid deprecated gdk_keyboard_grab
+	gdk_keyboard_grab() was deprecated in 3.0 for gdk_device_grab()
+	but that was also deprecated for gdk_seat_grab() in 3.20
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	gtk: Use gdk_device_warp
+	gdk_display_warp_pointer has been deprecated since Gtk 3.0
+
+	In Wayland gdk_device_warp is noop making server mouse mode
+	unusable, see: https://bugzilla.redhat.com/show_bug.cgi?id=1285378
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	gtk: Use gdk_window_get_device_position
+	gdk_window_get_pointer has been deprecated since Gtk 3.0
+
+	Introduce helper functions for getting the display's pointing
+	device and modifiers to keep the update_mouse_mode simple
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	gtk: Use gdk_cursor_new_from_name
+	gdk_cursor_new has been deprecated since Gtk 3.16
+
+	A difference is that the helper function for creating the cursor
+	returns early if the widget is not realized.
+
+	Also allow to hide the cursor under Wayland
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-02-20  Pavel Grunt  <pgrunt@redhat.com>
+
+	gtk-session: Set value directly
+	Related Coverity warning:
+	 spice-gtk-0.33.53-7cb7-dirty/src/spice-gtk-session.c:920:9: note:
+	 Value stored to 'new_len' during its initialization is never read
+	 #    int new_len = *len;
+	 #        ^~~~~~~   ~~~~
+	 #  918|   {
+	 #  919|       char *conv = NULL;
+	 #  920|->     int new_len = *len;
+	 #  921|
+	 #  922|       if (spice_main_agent_test_capability(self->priv->main,
+	 VD_AGENT_CAP_GUEST_LINEEND_CRLF)) {
+
+	There is no need for the "new_len" variable
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-02-17  Christophe Fergeau  <cfergeau@redhat.com>
+
+	channel: Move local variables to inner block
+	Less things to keep track of when taking a quick look at the code flow
+	of the spice_channel_load_ca() method.
+
+2017-02-14  Pavel Grunt  <pgrunt@redhat.com>
+
+	keymaps.csv: Add missing columns
+	Allow easier processing by scripts and csv editors
+
+	With
+
+	  git diff HEAD^ --word-diff --word-diff-regex='[^[:space:]]'
+
+	you can easily see that there's no difference beside the added
+	columns at the end and with a
+
+	  perl -pe 's.[^,\n]..sg' src/keymaps.csv | uniq
+
+	you can see all rows have the same amount of columns
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-02-08  Jonathon Jongsma  <jjongsma@redhat.com>
+
+	Spicy: cancel file transfer when dialog is closed
+	Clicking the 'X' to close the file transfer dialog did not actually
+	cancel the ongoing file transfer, and resulted in a bunch of critical
+	warnings on the terminal. Make the delete-event explicitly cancel all
+	ongoing file transfers.
+
+2017-02-08  Victor Toso  <me@victortoso.com>
+
+	file-xfer: avoid g_hash_table_iter_* when changing the GHashTable
+	Using g_hash_table_iter_init() and g_hash_table_iter_next() here is
+	bad as spice_file_transfer_task_completed() will emit "finished"
+	signal from SpiceFileTransferTask resulting in the original GHashTable
+	to be changed in file_transfer_operation_task_finished()
+
+	Debug will show:
+	  GSpice-DEBUG: spice-file-transfer-task.c:303 File bigfile2 xfer
+	  failed: Agent connection closed
+
+	  WARNING **: Agent connection closed
+
+	  GLib-CRITICAL **: g_hash_table_iter_next: assertion 'ri->version ==
+	  ri->hash_table->version' failed
+
+	Reported-by: Pavel Grunt <pgrunt@redhat.com>
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	spicy: implement preferred video codec type
+	Similar to preferred video compression, a radio button showing mjpeg,
+	vp8, vp9 and h264 in case server has the proper [0] capability
+
+	[0] SPICE_DISPLAY_CAP_PREF_VIDEO_CODEC_TYPE
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	channel-display: implement preferred video codec msgc
+	* SPICE_MSGC_DISPLAY_PREFERRED_VIDEO_CODEC_TYPE
+
+	This message was introduced in protocol 0.12.13 to establish client
+	side preference on video codec to be used in streams.
+
+	At this moment, we only introduce a new API [0] to select *the*
+	preferred video codec for client; In a later time, it should be
+	possible to use this message upon connection in order to to give
+	higher priority for video codecs with better performance and with
+	hardware decoding capabilities.
+
+	[0] spice_display_change_preferred_video_codec_type()
+
+	Note that host preference for encoding is expected to be considered
+	first then the client's preference.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-02-06  Pavel Grunt  <pgrunt@redhat.com>
+
+	streaming: Unify codec checking
+	Avoid copy-pasting to add a new codec
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	build-sys: Add VP9 check
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-01-31  Frediano Ziglio  <fziglio@redhat.com>
+
+	Add support for VP9
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2017-01-31  Victor Toso  <me@victortoso.com>
+
+	Update spice-common
+	Frediano Ziglio (1):
+	      protocol: Add support for VP9 video codec
+
+	Victor Toso (1):
+	      protocol: add preferred video codec message
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2017-01-31  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	usb: remove disconnect_device() deprecation warning
+	Use a static function instead of the deprecated public function.
+
+	The usage of the function seems to be fine for sync case, since the
+	device was already removed, but I added a TODO just in case someone
+	looks at this code.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	Give a hint about spice_usb_device_manager_disconnect_device() deprecation
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	audio: fix deprecation warning
+	Use a private function to avoid the spice_audio_new() deprecation
+	warning.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	Revert "audio: Remove spice_audio_new() from the public header"
+	This reverts commit c6d9fa1c4af03d9875bf503ce6eabc9e7b52acc3.
+
+	There is no rush to remove a deprecated API from public headers. It's
+	better to do that when the whole library breaks API/ABI altogether.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	pygtk: remove bindings leftover
+	PyGtk 2.0 got removed in 0917002c48a0a5deb615d120a0e5997eefc89fd4,
+	remove some remaining files.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-01-24  Pavel Grunt  <pgrunt@redhat.com>
+
+	doc: Remove SpiceGtkBox
+	Removed from code in a7565265532f6abec0fd3c6d843683b58eee070a
+
+2017-01-23  Pavel Grunt  <pgrunt@redhat.com>
+
+	keymap: Add missing keys for XF86 and X11
+	Broadway backend keymap (vncdisplaykeymap_x112xtkbd.c) was missing
+	the "shift" variants of many keys, like:
+	 !,@,#,$,%,^,&,*,(,),...
+	making its usage very limited. This change allow us to use it at least
+	with the EN_US keyboard layout.
+
+	Keys were taken from `xmodmap -pk`.
+
+	To reproduce the issue:
+	 brodwayd
+	 GDK_BACKEND=broadway spicy
+	 firefox 127.0.0.1:8080
+
+	Also add F11/F12/102nd key to XF86 making them available in:
+	 vncdisplaykeymap_xorgxwin2xtkbd.c
+	 vncdisplaykeymap_xorgkbd2xtkbd.c
+
+	Resolves:
+	https://bugs.freedesktop.org/show_bug.cgi?id=99407
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-01-23  Victor Toso  <me@victortoso.com>
+
+	Move spicy tools to its own folder
+	So we can have the tools and the libraries in different folders.
+
+	In the src/Makefile.am I've only removed the lines related to the
+	tools but not all lines were copied into tools/Makefile.am as we
+	don't really need them. Other lines were adjusted to have the paths
+	correctly;
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-01-19  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Fix a race condition in the GStreamer frame display queue
+	When a frame is late we schedule its display right away with
+	g_timeout_add(0, ...).  This scheduling is done in one of the GStreamer
+	thread, and the display_frame() callback will be called from the main
+	thread. This can result in display_frame() being called before
+	g_timeout_add() returns. This would cause the timer_id being reset
+	before schedule_frame() had set it so that it would then never be reset.
+	So from that point schedule_frame() would always think a frame was being
+	displayed and thus would not schedule any more frames resulting in a
+	video freeze.
+
+	display_frame() now takes the queues mutex before resetting timer_id
+	eliminating the race.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2017-01-11  Sebastian Andrzej Siewior  <sebastian@breakpoint.cc>
+
+	ssl: Use accessors rather than direct struct access
+	In OpenSSL 1.1.0, the struct fields are private so we can no longer
+	directly access them.
+
+	The accessors are not available in previous OpenSSL releases, so we need
+	to add compat helpers.
+
+	ssl: Rework our custom BIO type
+	This commit changes to an actual new BIO method rather than reusing an
+	existing BIO method, and overriding only the fields that we need.
+	The approach before this commit would be causing issues with OpenSSL
+	1.1.0 as some of the fields we access have become opaque.
+
+	ssl: Stop creating our own X509_LOOKUP_METHOD
+	OpenSSL 1.1.0 does not seem to provide API to do that anymore.
+
+	There is no need to create a custom lookup to begin with. This method
+	here has no callbacks implemented and is doing nothing. The way I
+	understand it, it is used to retrieve a `lookup' object which provides a
+	certificate store.  The SSL ctx provides also such a store.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2017-01-09  Frediano Ziglio  <fziglio@redhat.com>
+
+	streaming: Allows protocol to have more codecs
+	The source file contains a list of fixed codecs for streaming.
+	This list is tested to include all codecs from spice-protocol.
+	If spice-protocol is extended to add more codecs this file starts
+	failing to compile due to missing codecs.
+	This patch allow to compile supporting less codecs than the
+	ones listed in spice-protocol.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-12-22  Victor Toso  <me@victortoso.com>
+
+	win-usb: remove usbclerk
+	As we have UsbDk integration now which is well maintained upstream.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-12-19  Victor Toso  <me@victortoso.com>
+
+	Ignore warnings about unavailable function around webdav
+	We do an extra check in configure to enable webdav and build everything
+	with a PHODAV variable check.
+
+	The warnings below are false positive and can be ignored while we don't
+	bump the requirements.
+
+	giopipe.c:481:5: warning: ‘g_simple_io_stream_new’ is deprecated: Not
+	available before 2.44 [-Wdeprecated-declarations]
+
+	giopipe.c:482:5: warning: ‘g_simple_io_stream_new’ is deprecated: Not
+	available before 2.44 [-Wdeprecated-declarations]
+
+	channel-webdav.c:317:5: warning: ‘g_output_stream_write_all_finish’ is
+	deprecated: Not available before 2.44 [-Wdeprecated-declarations]
+
+	channel-webdav.c:339:9: warning: ‘g_output_stream_write_all_async’ is
+	deprecated: Not available before 2.44 [-Wdeprecated-declarations]
+
+	channel-webdav.c:375:5: warning: ‘g_inet_socket_address_new_from_string’
+	is deprecated: Not available before 2.40 [-Wdeprecated-declarations]
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+2016-12-09  Pavel Grunt  <pgrunt@redhat.com>
+
+	Adjust to spice_marshaller_add_ref rename
+	It was renamed in the spice-common submodule
+
+	Submodule update contains following changes:
+
+	Francois Gouget (1):
+	      codegen: Fix compatibility with Python 2.6
+
+	Frediano Ziglio (9):
+	      Start adding protocol file documentation
+	      Start writing some documentation on protocol
+	      Extended protocol documentation
+	      More work on attribute protocol documentation
+	      Fix BNF notation in documentation
+	      Add protocol documentation for "channel" and "protocol"
+	      Define a new SPICE_VERIFY macro
+	      Detect LZ4_compress_fast_continue function
+	      marshaller: Remove deprecated replacement functions
+
+	Jonathon Jongsma (1):
+	      Marshaller: rename _add_ref() to _add_by_ref()
+
+	Pavel Grunt (5):
+	      codegen: Do not generate extra null check
+	      silence -Wunused-parameter
+	      spice-deps: Fix accidently deleted comment
+	      spice-deps: Make LZ4 check depending on function
+	      spice-deps: Set python version based on modules availability
+
+	Victor Toso (6):
+	      build-sys: requires liblz4 129 or newer
+	      Fix gitignore with new docs folder
+	      canvas-base: use helper to get surface
+	      canvas-base: group ifdef and defined together
+	      canvas-base: remove user data from CanvasBase
+	      sw-canvas: remove unused defines
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-12-08  Christophe Fergeau  <cfergeau@redhat.com>
+
+	spicy: Disable deprecation warnings
+	It still uses GtkUIManager and GtkAction
+
+	Acked-by: Francois Gouget <fgouget@codeweavers.com>
+
+2016-12-08  Francois Gouget  <fgouget@codeweavers.com>
+
+	build-sys: Enable deprecation warnings instead of ignoring them entirely
+	For Spice-gtk most deprecation issues come from changes outside Spice
+	(GLib) and thus should not be treated as errors to not break
+	compilation for users who have newer third-party libraries.
+	However they must be visible otherwise Spice developers will not be
+	aware of them and thus will not fix them before breakage happens.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	gtk: Temporarily ignore the keyboard/mouse grabbing deprecation warnings
+	Note that the *_IGNORE_DEPRECATIONS macros are treated as separate
+	statements by the compiler so they need to be put in a proper code block
+	where appropriate.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-12-02  Francois Gouget  <fgouget@codeweavers.com>
+
+	streaming: Stop streaming if frames cannot be decoded
+	Report the stream as invalid if the frames cannot be decoded. This will
+	force the server to send regular screen updates instead.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+	streaming: Report invalid streams to the server
+	The error is sent using the existing client stream report message where
+	the dropped frame count is maxed out while the received frame count is
+	zero. Servers that recognize it can then switch to sending regular
+	screen updates for that area so the client is not stuck with a frozen
+	area on the screen.
+	This can be useful in case the client is unable to decode the stream for
+	some reason like a bug in the GStreamer plugins, the decoder not liking
+	odd video dimensions, etc.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-12-01  Victor Toso  <me@victortoso.com>
+
+	channel-usbredir: Fix crash on channel-up
+	SpiceSession does not initialize its SpiceUsbDeviceManager object on
+	startup that could lead to a race condition where channel-usbredir is
+	requested to flush data while it is uninitialized.
+
+	In a few places, spice_usb_device_manager_get() is called as in
+	usb-device-widget.c and spice-gtk-session.c but not used in
+	spicy-stats, making the tool to crash on startup if it encounters an
+	usbredir channel.
+
+	 #0 in usbredirhost_write_guest_data (host=0x0) at usbredir/usbredirhost/usbredirhost.c:876
+	 #1 in spice_usbredir_channel_up (c=0x643830) at channel-usbredir.c:821
+	 #2 in spice_channel_up (channel=0x643830) at spice-channel.c:1238
+	 #3 in spice_channel_recv_auth (channel=0x643830) at spice-channel.c:1225
+	 #4 in spice_channel_coroutine (data=0x643830) at spice-channel.c:2580
+	 #5 in coroutine_trampoline (cc=0x642ec0) at coroutine_ucontext.c:63
+	 #6 in continuation_trampoline (i0=6565568, i1=0) at continuation.c:55
+
+	Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1399838
+
+	Reported-by: Michael Cullen <michael@cullen-online.com>
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	channel-main: demote log level from warning to debug
+	The volume-async happens when agent announce its capabilities. It is
+	common that we don't have a playback stream being played at this time
+	and it is even harder for a record stream.
+
+	If the audio back-end does not cache the last volume used or if this
+	is the first time the application is launched, this message will be
+	seen.
+
+	Failing to get playback or record volume async on startup is very
+	common making this warning too worrisome for users.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-11-16  Victor Toso  <me@victortoso.com>
+
+	Revert "win-usb-dev: report error to g_udev_client_new()"
+	This reverts commit eba83a7056d4213b60466f692a03e515115b0826.
+
+	This is breaking build in linux as it relies on the actual GUdevClient
+	API. Let's simply revert and find a different way to get the error.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-11-15  Victor Toso  <me@victortoso.com>
+
+	win-usb-dev: improve warning message
+	With the actual reason for failure. This might help to identify why
+	code might be crashing or failing.
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
+	win-usb-dev: let _finalize() do libusb_exit()
+	This fixes a hang in mingw-spice-gtk when the GUdevClient fails to
+	initialize due to problems in the UsbDk installation.
+
+	Before this patch, libusb_exit() was being called twice:
+	- At g_udev_client_initable_init(), after failure with priv->ctx as
+	  argument
+	- At g_udev_client_finalize() as g_udev_client_initable_init() failure
+	  implies the object failed to initialize and it is terminated. Here
+	  it was being called with NULL as priv->ctx was set to NULL in
+	  g_udev_client_initable_init()
+
+	Resolves: https://bugs.freedesktop.org/show_bug.cgi?id=98686
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	usb-device-manager: handle failures from g_udev_client_new()
+	As we must handle when GUdevClient creation can fail otherwise code
+	might crash.
+
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	channel-usbredir: handle failure from SpiceUsbDeviceManager
+	As spice_usb_device_manager_get() can be NULL
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	win-usb-dev: report error to g_udev_client_new()
+	Otherwise application will not be able to know the reason for failure.
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+	win-usb-dev: make usage of early return
+	No need for if else here.
+	Acked-by: Christophe Fergeau <cfergeau@redhat.com>
+
+2016-11-14  Victor Toso  <me@victortoso.com>
+
+	file-xfer: do not send unnecessary 0 bytes messages
+	This fixes the situation when VDAgent receives 0 byte message
+	regarding a file-transfer operation that was terminated in the
+	previous message.
+
+	This makes the VDAgent to send a STATUS_ERROR after STATUS_SUCCESS to
+	client.
+
+	Resolves: https://bugs.freedesktop.org/show_bug.cgi?id=97227
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-11-14  Frediano Ziglio  <fziglio@redhat.com>
+
+	usb: Allow to compile if LZ4 is disabled
+	spice_usbredir_channel_get_spice_usb_device is used only if LZ4
+	is enabled so avoid to define if not used as this cause a
+	compile error.
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-11-14  Pavel Grunt  <pgrunt@redhat.com>
+
+	vncdisplaykeymap: Include missing headers
+	Causing build failures on win32
+	 .libs/vncdisplaykeymap.o: In function `vnc_display_keymap_gdk2xtkbd_table':
+	  /builddir/build/BUILD/spice-gtk-0.33.19-efbfd/build_win32/src/../../src/vncdisplaykeymap.c:198: undefined reference to `GDK_IS_WIN32_WINDOW'
+	 collect2: error: ld returned 1 exit status
+
+	Regression from 9ff67a108bb76e50a2c85a5054e6521088df1800
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	Adjust include header to new location of macros
+	minor & major macros were moved to sysmacros.h
+
+	usbutil.c: In function ‘spice_usbutil_get_sysfs_attribute’:
+	usbutil.c:110:14: warning: ‘__major_from_sys_types’ is deprecated:
+	  In the GNU C Library, `major' is defined by <sys/sysmacros.h>.
+	  For historical compatibility, it is currently defined by
+	  <sys/types.h> as well, but we plan to remove this soon.
+	  To use `major', include <sys/sysmacros.h> directly.
+	  If you did not intend to use a system-defined macro `major',
+	  you should #undef it after including <sys/types.h>.
+	  [-Wdeprecated-declarations]
+	              major(stat_buf.st_rdev), minor(stat_buf.st_rdev), attribute);
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-11-10  Christophe Fergeau  <cfergeau@redhat.com>
+
+	gtk-session: Fix typo in comment
+
+2016-10-31  Francois Gouget  <fgouget@codeweavers.com>
+
+	build-sys: Use spice-protocol's deprecation macros
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	build-sys: Remove SPICE_NO_DEPRECATED
+	The new policy is that deprecation warnings should not be disabled
+	globally or even per-file with SPICE_NO_DEPRECATED. Instead they should
+	either be fixed, or ignored locally with
+	G_GNUC_{BEGIN,END}_IGNORE_DEPRECATIONS.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	audio: Remove spice_audio_new() from the public header
+	It has been deprecated for long enough.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	gdk: Ignore clipboard_get()'s deprecation warnings
+	Its implementation is modeled after gtk_dialog_run() which still uses
+	these deprecated thread functions.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	vncdisplaykeymap: Remove obsolete GTK+ 2 compatibility macros
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	gtk: Ignore GLib's too-new warnings where we explicitly check its version
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	gtk: Remove an obsolete comment
+	The GTK+ compatibility code has been gathered in a single file long ago
+	and support for GTK+ 2 has been dropped anyway.
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-10-21  Francois Gouget  <fgouget@codeweavers.com>
+
+	spicy: GtkTable is deprecated so use GtkGrid instead
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	spicy: Avoid gtk_hbutton_box_new(); it is deprecated
+	Spice-Gtk requires GTK+ > 3.12 which has gtk_button_box_new().
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+	spicy: Avoid gtk_vbox_new(); it is deprecated
+	Spice-Gtk requires GTK+ > 3.12 which has gtk_box_new().
+
+	Acked-by: Jonathon Jongsma <jjongsma@redhat.com>
+
+2016-10-20  Victor Toso  <me@victortoso.com>
+
+	channel-display-gst: use a static array for gst options
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+	channel-display-gst: style changes in create_pipeline
+	Move declaration of variable to top and break big g_strdup_printf
+	line.
+
+	Acked-by: Frediano Ziglio <fziglio@redhat.com>
+
+2016-10-19  Pavel Grunt  <pgrunt@redhat.com>
+
+	test-session: Fix comparison
+	The test was not executed because G_N_ELEMENTS is 0 for the pointer
+
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-10-17  Pavel Grunt  <pgrunt@redhat.com>
+
+	test-session: Add IPv6 tests
+
+	test-session: Test invalid URIs
+
+	test-session: Also test hostname, username and password
+
+	test-session: Test alternative way for setting port
+	Acked-by: Victor Toso <victortoso@redhat.com>
+
+2016-10-17  Victor Toso  <me@victortoso.com>
+
+	clipboard: Fix crash by handling error
+	As manual states below, text could be NULL for different reasons and
+	we should handle that. I've included a debug message to help
+	identifying possible regressions from wayland's clipboard.
+
+	This crash is a regression from 7b0de6217670e0f668aff2949f
+
+	 "The text parameter to callback will contain the resulting text if
+	 the request succeeded, or NULL if it failed. This could happen for
+	 various reasons, in particular if the clipboard was empty or if the
+	 contents of the clipboard could not be converted into text form."
+
+	Resolves: rhbz#1384676
+
+	Acked-by: Pavel Grunt <pgrunt@redhat.com>
+
 2016-10-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	spicy: fix reset of terminal when quit
@@ -145,7 +2153,7 @@
 	This makes clipboard_received_cb a bit shorter, and will be useful
 	in the next commit.
 
-2016-09-01  Jonathon Jongsma  <jjongsma@redhat.com>
+2016-08-31  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Add ability to get sizes from SpiceFileTransferTask
 	If a client is handling multiple SpiceFileTransferTasks at one time,
@@ -558,7 +2566,7 @@
 
 	Acked-by: Victor Toso <victortoso@redhat.com>
 
-2016-07-30  Victor Toso  <victortoso@redhat.com>
+2016-07-29  Victor Toso  <victortoso@redhat.com>
 
 	file-transfer: remove unused function for debug
 	This is here due bad rebase. It was removed and replaced by patch
@@ -2054,7 +4062,7 @@
 
 	Acked-by: Eduardo Lima (Etrunko) <etrunko@redhat.com>
 
-2016-04-02  Pavel Grunt  <pgrunt@redhat.com>
+2016-04-01  Pavel Grunt  <pgrunt@redhat.com>
 
 	widget-egl: Define label only if can be used
 	The label can be used only with GDK_WINDOWING_WAYLAND
@@ -2091,7 +4099,7 @@
 	additions/removals, and some removed symbols were still listed in
 	map-file.
 
-2016-03-30  Victor Toso  <victortoso@redhat.com>
+2016-03-29  Victor Toso  <victortoso@redhat.com>
 
 	egl: fix leak when display is unrealize
 	eglTerminate should be called on unrealize. This not yet fix all the
@@ -2264,7 +4272,7 @@
 
 	usb: fix build, missing ')'
 
-2016-03-25  Jonathon Jongsma  <jjongsma@redhat.com>
+2016-03-24  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	usb device widget: don't try to disconnect on failed connect
 	When you try to redirect a usb device to the guest and it fails, we
@@ -2639,7 +4647,7 @@
 
 	Avoid to access array with negative numbers
 
-2016-03-23  Fabiano Fidêncio  <fidencio@redhat.com>
+2016-03-22  Fabiano Fidêncio  <fidencio@redhat.com>
 
 	vmcstream,gtask: Do idle ourself instead of leaving it to GTask's heuristic
 	Seems that GTask heuristic only makes sense in a non-coroutine case.
@@ -2829,7 +4837,7 @@
 
 	Acked-by: Fabiano Fidêncio <fidencio@redhat.com>
 
-2016-03-15  Fabiano Fidêncio  <fidencio@redhat.com>
+2016-03-14  Fabiano Fidêncio  <fidencio@redhat.com>
 
 	wocky-http-proxy: Use GTask instead of GSimpleAsyncResult
 	Instead of using GSimpleAsyncResult, use the new GTask API, which is
@@ -3359,7 +5367,7 @@
 
 	Acked-by: Victor Toso <victortoso@redhat.com>
 
-2015-11-20  Jay.han  <ezzzehxx@gmail.com>
+2015-11-19  Jay.han  <ezzzehxx@gmail.com>
 
 	file transfer: send cancel message when user cancels a transfer
 	When a user cancel's a file transfer, we should send a STATUS_CANCELED
@@ -3579,7 +5587,7 @@
 	releasing a reference, it's better to make it obvious that this method
 	is a _free() method rather than an _unref() one.
 
-2015-10-10  Jonathon Jongsma  <jjongsma@redhat.com>
+2015-10-09  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	New file transfer API
 	There were several shortcomings to the existing file transfer API,
@@ -3613,8 +5621,6 @@
 
 	The 'spicy' test application has been updated to use this new API and
 	display a simple dialog showing the progress of individual files.
-
-2015-10-09  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Fix progress monitoring in spice_main_file_copy_async
 	spice_main_file_copy_async() allows you to pass a NULL-terminated array
@@ -3728,7 +5734,7 @@
 	but no specific version of it, so we can drop the duplicate
 	Requires.private requirement, and keep the unversioned one in Requires.
 
-2015-09-11  Jonathon Jongsma  <jjongsma@redhat.com>
+2015-09-10  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Don't send monitors config when Display widget is created
 	When a display channel is associated with a particular SpiceDisplay
@@ -3845,7 +5851,7 @@
 	Resolves:
 	https://bugs.freedesktop.org/show_bug.cgi?id=91489
 
-2015-07-29  Sandy Stutsman  <sstutsma@redhat.com>
+2015-07-28  Sandy Stutsman  <sstutsma@redhat.com>
 
 	Handle single headed monitors that have a non-zero x, y config
 	Each monitor on a Windows guest is represented as a separate, single-headed
@@ -3868,14 +5874,12 @@
 	It should be harmless on other distros, and it does save us Debian guys some
 	hassle.
 
-2015-07-14  Pavel Grunt  <pgrunt@redhat.com>
+2015-07-13  Pavel Grunt  <pgrunt@redhat.com>
 
 	Use g_return_val_if_fail instead of wrong g_return_if_fail
 	The commit 4b5e6ec2114e1250c81027ebeac9cfe8d059153f introduced a function
 	returning gboolean, g_return_val_if_fail() should be used instead of
 	g_return_if_fail().
-
-2015-07-13  Pavel Grunt  <pgrunt@redhat.com>
 
 	Send monitor config if at least one monitor has dimensions
 	If a client (virt-manager, spicy) is not setting display dimensions
@@ -4407,7 +6411,7 @@
 	==6481==    by 0x31FEE4A771: g_main_loop_run (gmain.c:4002)
 	==6481==    by 0x363AC06CC4: gtk_main (in /usr/lib64/libgtk-3.so.0.1600.1)
 
-2015-04-16  Jonathon Jongsma  <jjongsma@redhat.com>
+2015-04-15  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Make update-symbol-files work when builddir != srcdir
 	rewrite the update-symbol-files rule to use dependencies and automatic
@@ -4656,7 +6660,7 @@
 	Keys should be sent to the guest if the widget has the focus even
 	when the keyboard grab is released.
 
-2015-02-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2015-02-06  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	webdav: fix checking for shared directory property
 	Trivial fix for 6163828e8cb15d539c80cc3f0bfb5008be9b2247:
@@ -5524,7 +7528,7 @@
 
 	https://bugzilla.redhat.com/show_bug.cgi?id=1135099
 
-2014-08-29  Jonathon Jongsma  <jjongsma@redhat.com>
+2014-08-28  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Wait to send monitor config until agent caps are received
 	When the first display is disabled and the vdagent is restarted in the guest,
@@ -5811,7 +7815,7 @@
 	Spice-GTK provides SPICE-specific command line options. This man page
 	describes these options as well as the format of SPICE URIs.
 
-2014-04-04  Jonathon Jongsma  <jjongsma@redhat.com>
+2014-04-03  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Use GdkKeymap to listen for keyboard modifier changes
 	Connect to the GdkKeymap::state-changed signal to detect when the client
@@ -5853,7 +7857,7 @@
 
 	build-sys: add missing soup subst
 
-2014-04-01  Jonathon Jongsma  <jjongsma@redhat.com>
+2014-03-31  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Fix missing SPICE_GTK_MICRO_VERSION value
 	configure.ac tries to assign a default value of 0 to the micro version if it's
@@ -5934,7 +7938,7 @@
 	I've checked that this does not introduce new warnings on linux and mingw32
 	builds.
 
-2014-03-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2014-03-14  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Fix spice_display_get_pixbuf() with offset area
 	Fix screenshot of secondary displays, with an area position != (0,0).
@@ -6202,7 +8206,7 @@
 	spice-gtk-0.22.9-fb3d/spice-gtk3-0.22.9/gtk/spice-util.c:364: dead_error_condition: The condition "err" cannot be true.
 	spice-gtk-0.22.9-fb3d/spice-gtk3-0.22.9/gtk/spice-util.c:365: dead_error_begin: Execution cannot reach this statement "g_propagate_error(error, err);".
 
-2014-01-04  Christophe Fergeau  <cfergeau@redhat.com>
+2014-01-03  Christophe Fergeau  <cfergeau@redhat.com>
 
 	controller: Don't call g_type_init() in test with newer glib
 	g_type_init() is deprecated, calling it on newer glib causes a compile-time
@@ -6211,8 +8215,6 @@
 	controller: Add missing #ifdef WIN32 in test
 	The spicec_pid variable is only used in a #ifdef WIN32 block, but it was
 	unconditionnally declared/initialized. This causes a gcc warning.
-
-2014-01-03  Christophe Fergeau  <cfergeau@redhat.com>
 
 	controller: Avoid out of string bound accesses in test
 	When computing the amount of data to send for static strings, the test
@@ -6545,7 +8547,7 @@
 
 	coroutine: add some preconditions
 
-2013-11-08  Jonathon Jongsma  <jjongsma@redhat.com>
+2013-11-07  Jonathon Jongsma  <jjongsma@redhat.com>
 
 	Guarantee that 'uuid' property is notified after connection
 	This creates a synchronization point and allows API users to rely on the fact
@@ -6613,7 +8615,7 @@
 	client re-implement this, expose the utility function as public API in
 	spice-gtk.
 
-2013-10-20  Alon Levy  <alevy@redhat.com>
+2013-10-19  Alon Levy  <alevy@redhat.com>
 
 	channel-cursor: mono cursors edge highlighting
 	Fix 998529, mono (invert) cursors not visible on a black background, by doing
@@ -7037,6 +9039,8 @@
 	util: add unix2dos and dos2unix
 	Convert line endings from/to LF/CRLF.
 
+2013-08-23  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
 	Revert "channel-main: Convert text line-endings if necessary (rhbz#752350)"
 	This implementation assumes that the toolkit doesn't do any conversion
 	on its own. This is actually not the case, gtk+ converts line endings
@@ -7051,8 +9055,6 @@
 	following commits.
 
 	This reverts commit e45a446a9981ad4adaeff9c885962a8c6140333e.
-
-2013-08-23  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: remove dead code
 
@@ -7114,7 +9116,7 @@
 	./autogen.sh --with-gtk=2.0 --disable-gtk-doc --disable-vala
 	             --disable-controller --disable-werror
 
-2013-08-07  Yonit Halperin  <yhalperi@redhat.com>
+2013-08-06  Yonit Halperin  <yhalperi@redhat.com>
 
 	usb-device-manager: fix compilation error when usbredir is disabled
 
@@ -7968,7 +9970,7 @@
 
 	main: only notify on agent status change
 
-2013-03-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-03-19  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	controller: don't try to set integrity on XP x64 edition
 	XP x64 uses version 5.2, but doesn't accept setting the pipe to low
@@ -8146,14 +10148,14 @@
 	is only compiled in under Windows -> Remove the #ifdef to also catch this
 	under Linux.
 
-2013-02-08  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-02-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	display: keep monitor config updated if resize-guest is disabled
 	https://bugzilla.redhat.com/show_bug.cgi?id=908057
 
 	Update spice-common
 
-2013-02-07  Uri Lublin  <uril@redhat.com>
+2013-02-06  Uri Lublin  <uril@redhat.com>
 
 	mingw: spice-widget: make sure MAPVK_VK_TO_VSC is defined
 	MAPVK_VK_TO_VSC is defined in the file:
@@ -8225,7 +10227,7 @@
 	build: fix for automake-1.13
 	Use AC_CONFIG_HEADER instead of deprecated AM_CONFIG_HEADER.
 
-2013-02-01  Yonit Halperin  <yhalperi@redhat.com>
+2013-01-31  Yonit Halperin  <yhalperi@redhat.com>
 
 	update spice-common submodule
 	obtaining a fix related to palettes caching (fedora 875348, 826036)
@@ -8243,9 +10245,9 @@
 	on setenv(). Also doing so would override system environment, which
 	will modify other session too sharing the same process.
 
-	proxy: initialize proxy at session construct time
-
 2013-01-28  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	proxy: initialize proxy at session construct time
 
 	Fix a bunch of gtkdoc/giscan warnings
 
@@ -8255,15 +10257,13 @@
 	open_host->error is only set if we try to use a proxy. Let´s make that
 	more clear.
 
-2013-01-22  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-01-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build-sys: generate THANKS at dist time
 
-2013-01-22  Jasper Lievisse Adriaanse  <jasper@humppa.nl>
+2013-01-21  Jasper Lievisse Adriaanse  <jasper@humppa.nl>
 
 	build-sys: Use a portable variable assignment in configure.ac
-
-2013-01-21  Jasper Lievisse Adriaanse  <jasper@humppa.nl>
 
 	build-sys: missing sys/types.h in gtk/channel-display.c
 
@@ -8302,7 +10302,7 @@
 
 	Searching the monitors property by monitor-id avoids these problems.
 
-2013-01-17  Andrew Hughes  <gnu.andrew@redhat.com>
+2013-01-16  Andrew Hughes  <gnu.andrew@redhat.com>
 
 	build-sys: fix out-of-tree build with vala
 
@@ -8366,7 +10366,7 @@
 	4) When file transfer has finished, file xfer task will be removed from
 	   task list.
 
-2013-01-12  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2013-01-11  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Release v0.16
 	v0.16
@@ -8376,8 +10376,6 @@
 	- Send monitor config to the agent on spice_main_set_display_enabled() (#881072)
 	- Fix channel leak and wrong condition in spice_channel_flush()
 	- Build fixes
-
-2013-01-11  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	spice-channel: fix state condition check in flush()
 
@@ -8469,7 +10467,7 @@
 	     result=0x8a58f0, data=0x7fffe3fffa80) at spice-session.c:1606
 	 #5  0x00007ffff5ea1278 in g_task_return_now (task=0x8a58f0) at gtask.c:1102
 
-2012-12-21  Hans de Goede  <hdegoede@redhat.com>
+2012-12-20  Hans de Goede  <hdegoede@redhat.com>
 
 	acl-helper policykit policy: Allow redir by default for console users
 	This makes usb-redir a lot more userfriendly to use. This  has been
@@ -8699,7 +10697,7 @@
 	https://bugzilla.redhat.com/show_bug.cgi?id=857430
 	https://bugzilla.redhat.com/show_bug.cgi?id=857389
 
-2012-11-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-11-12  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	widget: regrab when widget is reconfigured
 	On Windows, we need to update the cursor clip. Call ungrab&grab to update it.
@@ -9057,7 +11055,7 @@
 	Fix region leak in gtk2 compat defines
 	https://bugs.freedesktop.org/show_bug.cgi?id=54277
 
-2012-09-03  Søren Sandmann Pedersen  <ssp@redhat.com>
+2012-09-02  Søren Sandmann Pedersen  <ssp@redhat.com>
 
 	Advertise SPICE_DISPLAY_CAP_COMPOSITE
 
@@ -9095,6 +11093,8 @@
 	all my machines.
 
 	https://bugs.freedesktop.org/show_bug.cgi?id=54277
+
+2012-08-30  Alexander Larsson  <alexl@redhat.com>
 
 	Add only_downscale property
 	When this is enabled we never scale displays larger
@@ -9855,6 +11855,8 @@
 	to detect spice-gtk connection failures, it's important to emit
 	one in all error cases.
 
+2012-06-10  Christophe Fergeau  <cfergeau@redhat.com>
+
 	Emit SPICE_CHANNEL_ERROR_TLS when certificate can't be found
 	When trying to start remote-viewer with SPICE over TLS with
 	--spice-ca-file with a wrong filename, the connection fails
@@ -9880,7 +11882,7 @@
 	in the case where glibc can actually use it.  The trick is using
 	AH_VERBATIM instead of AC_DEFINE.
 
-2012-06-06  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-06-05  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Update spice-common
 
@@ -10317,11 +12319,11 @@
 	Always remove shared memory segment of primary surfaces when
 	destroying its canvas.
 
+2012-03-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
 	controllers: signal when a client is connected
 
 	controller: handle SEND_CAD message as a property
-
-2012-03-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Fix cursor not being shown in client mode in some cases
 	The following seems to happen:
@@ -10616,7 +12618,7 @@
 
 	channel-usbredir: Handle some more usbredirhost_read_guest_data errors
 
-2012-03-08  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-03-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Do not warn when starting spicy if usbredir is disabled
 
@@ -10814,7 +12816,7 @@
 
 	Lower or silence some harmless debug messages
 
-2012-02-02  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-02-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	widget: allow defining a zoom-level
 	Add a "zoom-level" property. Maintain the given scaling ratio when
@@ -10840,7 +12842,7 @@
 	display-init time in a follow-up patch since it probably never worked
 	with spice-gtk.
 
-2012-02-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-01-31  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Report the scaling is 1.0 if the widget isn't realized yet
 	To avoid a few warnings in some corner cases.
@@ -11014,7 +13016,7 @@
 	spice_audio_new
 	This should fix https://bugzilla.redhat.com/show_bug.cgi?id=772118
 
-2012-01-16  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2012-01-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Release 0.8
 
@@ -11099,6 +13101,8 @@
 	Add support for SPICE_COMMON_CAP_MINI_HEADER
 	Don't send/receive serial and sub_list when the server supports the
 	above cap.
+
+2012-01-10  Yonit Halperin  <yhalperi@redhat.com>
 
 	spice-channel:  support SPICE_MSG_LIST
 
@@ -11423,12 +13427,10 @@
 	more by the guest. Unfortunately there seems to be no gdk / gtk API for this
 	so this patch uses direct libX11 calls.
 
-2011-12-14  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-12-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	windows: fix broken left shift
 	On Windows, the received key when pressing left shift is VK_SHIFT 0x10
-
-2011-12-13  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	Wrap in window, because windows doens't receive mouse events outside it
 
@@ -12822,11 +14824,9 @@
 	here. This had the side effect of making these functions not appear
 	in sym-file after running make update-sym-file.
 
-2011-05-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-05-24  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: add SSL ciphers session property
-
-2011-05-24  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	THANKS: update
 
@@ -12893,13 +14893,11 @@
 	display: fix build error GLib <2.26
 	https://bugs.freedesktop.org/show_bug.cgi?id=37443
 
-2011-05-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-05-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk/controller: correctly close namedpipe after calling close()
 
 	gtk/controller: add some missing clean up of namedpipe
-
-2011-05-20  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk/controller: forgot to dispose stream as well
 
@@ -12983,7 +14981,7 @@
 
 	(damn /me suck at PulseAudio client-side...)
 
-2011-05-04  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-05-03  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: fix SASL auth failed
 	Signal correctly to the client that AUTH failed.
@@ -13321,6 +15319,8 @@
 
 	gtk: remove some debugging, update TODO
 
+2011-03-27  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
 	Revert "gtk/display: remove unused mode name"
 	This reverts commit 33ef5a9368534f7fcb77ef60d8811ae08a707e4f.
 
@@ -13427,6 +15427,8 @@
 2011-02-22  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: add SASL support
+
+2011-02-21  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build: fix spice-client-gtk-3.0.pc requires
 
@@ -13555,9 +15557,9 @@
 	that the function is safe: the function returns when removing the
 	item, so it was safe before but as well...
 
-	gtk: fix small mem-leak
-
 2011-01-19  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	gtk: fix small mem-leak
 
 	gtk: default construction value in property parameter
 
@@ -13582,11 +15584,11 @@
 
 	gtk: stay unconnected until the FD is provided by the client
 
-2011-01-15  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-01-14  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build: fix distcheck
 
-2011-01-15  Daniel P. Berrange  <berrange@redhat.com>
+2011-01-14  Daniel P. Berrange  <berrange@redhat.com>
 
 	Fix rendering with GTK3
 	In GTK2 world there is an expose_event handler, so a choice
@@ -13626,8 +15628,6 @@
 	and the pkgconfig is called spice-client-gtk-3.0 too.
 
 	This allows for full parallel install of GTK2 and GTK3 builds
-
-2011-01-14  Daniel P. Berrange  <berrange@redhat.com>
 
 	Include ABI version in library names.
 	To allow easy parallel install of spice-gtk builds against GTK2
@@ -13679,11 +15679,9 @@
 
 	gtk: add some DEBUG related to migration
 
-2011-01-10  Marc-André Lureau  <marcandre.lureau@redhat.com>
+2011-01-09  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: build x11 keyboard code with cairo backend
-
-2011-01-09  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	build: replace echo by AC_MSG_NOTICE, that way it's logged
 
@@ -13694,13 +15692,13 @@
 
 	gtk: be more careful when accessing GDK_WINDOW_XDISPLAY
 
+2011-01-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
 	gtk: emit ERROR_LINK when connecting to non-spice server
 
 	gtk: fix async reading... booo, that was *really* missing
 
 	update NEWS and TODO for v0.4
-
-2011-01-07  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: ignore clipboard owner signal when main channel disconnected
 
@@ -13710,9 +15708,9 @@
 
 	gtk: add missing set_delay() symbol to map-file
 
-	build: help libtool/koji install client-glib before client-gtk
-
 2011-01-04  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	build: help libtool/koji install client-glib before client-gtk
 
 	gtk: fix reconnection from dialog in spicy
 	Closing the session while attempting a new one is a bad idea
@@ -13918,11 +15916,11 @@
 
 	TODO: update
 
+2010-12-05  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
 	Merge branch 'wip/coroutines'
 
 	gtk: first stab at gtk-doc documentation
-
-2010-12-05  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	gtk: WIP coroutines playback & record
 
@@ -13987,9 +15985,9 @@
 
 	gtk: delay PA stream creation when context is ready
 
-	gtk: don't uncork new streams
-
 2010-12-01  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
+	gtk: don't uncork new streams
 
 	gtk: save/restore spicy configuration
 	Fixes: https://bugs.freedesktop.org/show_bug.cgi?id=31991
@@ -14020,6 +16018,8 @@
 
 	gtk: add jpeg decoder
 
+2010-11-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
+
 	gtk: add zlib decoder
 
 	build: fix make -j
@@ -14027,8 +16027,6 @@
 	build: re-enable -Wflags, and fix a few warnings
 
 	build: use git-version-gen
-
-2010-11-25  Marc-André Lureau  <marcandre.lureau@redhat.com>
 
 	README: add a few missing dependencies
 

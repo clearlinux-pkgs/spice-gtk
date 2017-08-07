@@ -8,3 +8,6 @@ gtk+-x11-$with_gtk
 gtk+-$GTK_API_VERSION
 GOBJECT_INTROSPECTION
 pygtk-2.0
+libusbredirhost
+libusbredirparser
+libusbredirparser-0.5
