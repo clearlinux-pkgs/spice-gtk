@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.34
-Release  : 11
+Release  : 12
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Summary  : SPICE Client controller library
