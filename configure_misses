@@ -6,8 +6,6 @@ Configure miss: GSTAUDIO
 Configure miss: GSTVIDEO
 Configure miss: SMARTCARD
 Configure miss: SMARTCARD
-Configure miss: USBREDIR
-Configure miss: whether C compiler handles -Werror -Wunknown-warning-option
 Configure miss: floor
 Configure miss: sqrt
 Configure miss: SMARTCARD

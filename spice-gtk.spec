@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.34
-Release  : 13
+Release  : 14
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Summary  : SPICE Client controller library
@@ -15,6 +15,7 @@ Requires: spice-gtk-data
 Requires: spice-gtk-lib
 Requires: spice-gtk-doc
 Requires: spice-gtk-locales
+BuildRequires : acl-dev
 BuildRequires : asciidoc
 BuildRequires : docbook-xml
 BuildRequires : gettext
@@ -46,6 +47,7 @@ BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(spice-protocol)
 BuildRequires : pkgconfig(usbutils)
 BuildRequires : pkgconfig(x11)
+BuildRequires : usbredir-dev
 
 %description
 spice-gtk
@@ -114,8 +116,8 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1517701948
-%configure --disable-static --with-gtk=3.0
+export SOURCE_DATE_EPOCH=1519336743
+%configure --disable-static --with-gtk=3.0 --enable-usbredir=yes
 make  %{?_smp_mflags}
 
 %check
@@ -126,7 +128,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1517701948
+export SOURCE_DATE_EPOCH=1519336743
 rm -rf %{buildroot}
 %make_install
 %find_lang spice-gtk
@@ -136,6 +138,7 @@ rm -rf %{buildroot}
 
 %files bin
 %defattr(-,root,root,-)
+/usr/bin/spice-client-glib-usb-acl-helper
 /usr/bin/spicy
 /usr/bin/spicy-screenshot
 /usr/bin/spicy-stats
@@ -145,6 +148,7 @@ rm -rf %{buildroot}
 /usr/lib64/girepository-1.0/SpiceClientGLib-2.0.typelib
 /usr/lib64/girepository-1.0/SpiceClientGtk-3.0.typelib
 /usr/share/gir-1.0/*.gir
+/usr/share/polkit-1/actions/org.spice-space.lowlevelusbaccess.policy
 /usr/share/vala/vapi/spice-protocol.vapi
 
 %files dev
