@@ -7,3 +7,4 @@ gobject-introspection
 lz4-dev
 opus-dev
 gstreamer-dev
+usbredir-dev
