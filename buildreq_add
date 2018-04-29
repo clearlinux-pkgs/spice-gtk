@@ -8,3 +8,6 @@ lz4-dev
 opus-dev
 gstreamer-dev
 usbredir-dev
+pyparsing
+python-core
+pyparsing-legacypython

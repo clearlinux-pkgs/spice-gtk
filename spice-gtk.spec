@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.34
-Release  : 14
+Release  : 15
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Summary  : SPICE Client controller library
@@ -17,8 +17,11 @@ Requires: spice-gtk-doc
 Requires: spice-gtk-locales
 BuildRequires : acl-dev
 BuildRequires : asciidoc
+BuildRequires : automake
+BuildRequires : automake-dev
 BuildRequires : docbook-xml
 BuildRequires : gettext
+BuildRequires : gettext-bin
 BuildRequires : gobject-introspection
 BuildRequires : gobject-introspection-dev
 BuildRequires : gstreamer-dev
@@ -26,10 +29,14 @@ BuildRequires : gtk+-dev
 BuildRequires : gtk-doc
 BuildRequires : gtk-doc-dev
 BuildRequires : libjpeg-turbo-dev
+BuildRequires : libtool
+BuildRequires : libtool-dev
 BuildRequires : libxslt-bin
 BuildRequires : lz4-dev
+BuildRequires : m4
 BuildRequires : opus-dev
 BuildRequires : perl(XML::Parser)
+BuildRequires : pkg-config-dev
 BuildRequires : pkgconfig(cairo)
 BuildRequires : pkgconfig(gio-2.0)
 BuildRequires : pkgconfig(glib-2.0)
@@ -47,7 +54,14 @@ BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(spice-protocol)
 BuildRequires : pkgconfig(usbutils)
 BuildRequires : pkgconfig(x11)
+BuildRequires : pyparsing
+BuildRequires : pyparsing-legacypython
+BuildRequires : python-core
 BuildRequires : usbredir-dev
+Patch1: fix-cve-1.patch
+Patch2: fix-cve-2.patch
+Patch3: fix-cve-3.patch
+Patch4: CVE-2017-12194.nopatch
 
 %description
 spice-gtk
@@ -110,14 +124,21 @@ locales components for the spice-gtk package.
 
 %prep
 %setup -q -n spice-gtk-0.34
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1519336743
-%configure --disable-static --with-gtk=3.0 --enable-usbredir=yes
+export SOURCE_DATE_EPOCH=1525013018
+export CFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
+export FCFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
+export FFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
+export CXXFLAGS="$CXXFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
+%reconfigure --disable-static --with-gtk=3.0 --enable-usbredir=yes
 make  %{?_smp_mflags}
 
 %check
@@ -128,7 +149,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1519336743
+export SOURCE_DATE_EPOCH=1525013018
 rm -rf %{buildroot}
 %make_install
 %find_lang spice-gtk
