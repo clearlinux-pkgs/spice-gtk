@@ -11,3 +11,5 @@ usbredir-dev
 pyparsing
 python-core
 pyparsing-legacypython
+gst-plugins-base-dev
+gstreamer-dev
