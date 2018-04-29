@@ -2,11 +2,6 @@ Configure miss: stow
 Configure miss: native macOS
 Configure miss: libsasl2
 Configure miss: libphodav-2.0 glib-2.0 >= 2.43.90 libsoup-2.4 >= 2.49.91
-Configure miss: the autoaudiosrc GStreamer element
-Configure miss: the jpegdec GStreamer element
-Configure miss: the vp8dec GStreamer element
-Configure miss: the vp9dec GStreamer element
-Configure miss: the h264parse GStreamer element
 Configure miss: the avdec_h264 GStreamer element
 Configure miss: libcacard >= 2.5.1
 Configure miss: libcacard >= 0.1.2

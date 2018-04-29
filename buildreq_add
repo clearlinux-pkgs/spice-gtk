@@ -13,3 +13,9 @@ python-core
 pyparsing-legacypython
 gst-plugins-base-dev
 gstreamer-dev
+gst-plugins-good
+gst-plugins-ugly
+gst-plugins-bad
+asciidoc
+usbredir-dev
+acl-dev

@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.34
-Release  : 16
+Release  : 17
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Summary  : SPICE Client controller library
@@ -24,7 +24,10 @@ BuildRequires : gettext
 BuildRequires : gettext-bin
 BuildRequires : gobject-introspection
 BuildRequires : gobject-introspection-dev
+BuildRequires : gst-plugins-bad
 BuildRequires : gst-plugins-base-dev
+BuildRequires : gst-plugins-good
+BuildRequires : gst-plugins-ugly
 BuildRequires : gstreamer-dev
 BuildRequires : gtk+-dev
 BuildRequires : gtk-doc
@@ -134,7 +137,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1525013290
+export SOURCE_DATE_EPOCH=1525013730
 export CFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
 export FCFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
 export FFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
@@ -150,7 +153,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1525013290
+export SOURCE_DATE_EPOCH=1525013730
 rm -rf %{buildroot}
 %make_install
 %find_lang spice-gtk
