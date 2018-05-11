@@ -4,7 +4,7 @@
 #
 Name     : spice-gtk
 Version  : 0.34
-Release  : 18
+Release  : 19
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.34.tar.bz2
 Summary  : SPICE Client controller library
@@ -137,11 +137,11 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1525013730
-export CFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
-export FCFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
-export FFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
-export CXXFLAGS="$CXXFLAGS -fstack-protector-strong -mzero-caller-saved-regs "
+export SOURCE_DATE_EPOCH=1526019850
+export CFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
+export FCFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
+export FFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
+export CXXFLAGS="$CXXFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
 %reconfigure --disable-static --with-gtk=3.0 --enable-usbredir=yes
 make  %{?_smp_mflags}
 
@@ -153,7 +153,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1525013730
+export SOURCE_DATE_EPOCH=1526019850
 rm -rf %{buildroot}
 %make_install
 %find_lang spice-gtk
