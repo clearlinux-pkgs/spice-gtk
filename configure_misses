@@ -1,12 +1,12 @@
 Configure miss: stow
 Configure miss: native macOS
-Configure miss: libsasl2
-Configure miss: libphodav-2.0 glib-2.0 >= 2.43.90 libsoup-2.4 >= 2.49.91
+Configure miss: SASL
+Configure miss: PHODAV
 Configure miss: the avdec_h264 GStreamer element
-Configure miss: libcacard >= 2.5.1
-Configure miss: libcacard >= 0.1.2
+Configure miss: SMARTCARD
+Configure miss: SMARTCARD
+Configure miss: acl_get_file in -lc
 Configure miss: floor
-Configure miss: sqrt
-Configure miss: libcacard >= 2.5.1
-Configure miss: libcacard >= 0.1.2
-Configure miss: celt051 >= 0.5.1.1
+Configure miss: SMARTCARD
+Configure miss: SMARTCARD
+Configure miss: CELT051

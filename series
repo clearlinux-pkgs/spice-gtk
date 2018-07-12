@@ -1,4 +1,4 @@
-fix-cve-1.patch
-fix-cve-2.patch
-fix-cve-3.patch
+#fix-cve-1.patch
+#fix-cve-2.patch
+#fix-cve-3.patch
 CVE-2017-12194.nopatch
