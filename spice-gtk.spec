@@ -6,21 +6,22 @@
 #
 Name     : spice-gtk
 Version  : 0.35
-Release  : 25
+Release  : 26
 URL      : http://spice-space.org/download/gtk/spice-gtk-0.35.tar.bz2
 Source0  : http://spice-space.org/download/gtk/spice-gtk-0.35.tar.bz2
 Source99 : http://spice-space.org/download/gtk/spice-gtk-0.35.tar.bz2.sig
 Summary  : SPICE Client Gtk 3.0 library
 Group    : Development/Tools
 License  : LGPL-2.1
-Requires: spice-gtk-bin
-Requires: spice-gtk-data
-Requires: spice-gtk-lib
-Requires: spice-gtk-license
-Requires: spice-gtk-locales
-Requires: spice-gtk-man
+Requires: spice-gtk-bin = %{version}-%{release}
+Requires: spice-gtk-data = %{version}-%{release}
+Requires: spice-gtk-lib = %{version}-%{release}
+Requires: spice-gtk-license = %{version}-%{release}
+Requires: spice-gtk-locales = %{version}-%{release}
+Requires: spice-gtk-man = %{version}-%{release}
 BuildRequires : acl-dev
 BuildRequires : asciidoc
+BuildRequires : buildreq-meson
 BuildRequires : docbook-xml
 BuildRequires : gettext
 BuildRequires : glibc-staticdev
@@ -37,8 +38,6 @@ BuildRequires : gtk-doc-dev
 BuildRequires : libjpeg-turbo-dev
 BuildRequires : libxslt-bin
 BuildRequires : lz4-dev
-BuildRequires : meson
-BuildRequires : ninja
 BuildRequires : opus-dev
 BuildRequires : perl(XML::Parser)
 BuildRequires : pkgconfig(cairo)
@@ -61,7 +60,6 @@ BuildRequires : pkgconfig(x11)
 BuildRequires : pyparsing
 BuildRequires : pyparsing-legacypython
 BuildRequires : python-core
-BuildRequires : python3
 BuildRequires : usbredir-dev
 Patch1: CVE-2017-12194.nopatch
 
@@ -73,9 +71,9 @@ A Gtk client and libraries for SPICE remote desktop servers.
 %package bin
 Summary: bin components for the spice-gtk package.
 Group: Binaries
-Requires: spice-gtk-data
-Requires: spice-gtk-license
-Requires: spice-gtk-man
+Requires: spice-gtk-data = %{version}-%{release}
+Requires: spice-gtk-license = %{version}-%{release}
+Requires: spice-gtk-man = %{version}-%{release}
 
 %description bin
 bin components for the spice-gtk package.
@@ -92,10 +90,10 @@ data components for the spice-gtk package.
 %package dev
 Summary: dev components for the spice-gtk package.
 Group: Development
-Requires: spice-gtk-lib
-Requires: spice-gtk-bin
-Requires: spice-gtk-data
-Provides: spice-gtk-devel
+Requires: spice-gtk-lib = %{version}-%{release}
+Requires: spice-gtk-bin = %{version}-%{release}
+Requires: spice-gtk-data = %{version}-%{release}
+Provides: spice-gtk-devel = %{version}-%{release}
 
 %description dev
 dev components for the spice-gtk package.
@@ -104,7 +102,7 @@ dev components for the spice-gtk package.
 %package doc
 Summary: doc components for the spice-gtk package.
 Group: Documentation
-Requires: spice-gtk-man
+Requires: spice-gtk-man = %{version}-%{release}
 
 %description doc
 doc components for the spice-gtk package.
@@ -113,8 +111,8 @@ doc components for the spice-gtk package.
 %package lib
 Summary: lib components for the spice-gtk package.
 Group: Libraries
-Requires: spice-gtk-data
-Requires: spice-gtk-license
+Requires: spice-gtk-data = %{version}-%{release}
+Requires: spice-gtk-license = %{version}-%{release}
 
 %description lib
 lib components for the spice-gtk package.
@@ -152,7 +150,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1531406906
+export SOURCE_DATE_EPOCH=1542433983
 export CFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
 export FCFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
 export FFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
@@ -168,11 +166,11 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1531406906
+export SOURCE_DATE_EPOCH=1542433983
 rm -rf %{buildroot}
-mkdir -p %{buildroot}/usr/share/doc/spice-gtk
-cp COPYING %{buildroot}/usr/share/doc/spice-gtk/COPYING
-cp spice-common/COPYING %{buildroot}/usr/share/doc/spice-gtk/spice-common_COPYING
+mkdir -p %{buildroot}/usr/share/package-licenses/spice-gtk
+cp COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/COPYING
+cp spice-common/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/spice-common_COPYING
 %make_install
 %find_lang spice-gtk
 
@@ -280,12 +278,12 @@ cp spice-common/COPYING %{buildroot}/usr/share/doc/spice-gtk/spice-common_COPYIN
 /usr/lib64/libspice-client-gtk-3.0.so.5.0.0
 
 %files license
-%defattr(-,root,root,-)
-/usr/share/doc/spice-gtk/COPYING
-/usr/share/doc/spice-gtk/spice-common_COPYING
+%defattr(0644,root,root,0755)
+/usr/share/package-licenses/spice-gtk/COPYING
+/usr/share/package-licenses/spice-gtk/spice-common_COPYING
 
 %files man
-%defattr(-,root,root,-)
+%defattr(0644,root,root,0755)
 /usr/share/man/man1/spice-client.1
 
 %files locales -f spice-gtk.lang
