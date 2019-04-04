@@ -4,10 +4,10 @@
 #
 Name     : spice-gtk
 Version  : 0.36
-Release  : 27
+Release  : 28
 URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.36.tar.bz2
 Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.36.tar.bz2
-Summary  : SPICE Client GLib 2.0 library
+Summary  : GTK+ client library for SPICE
 Group    : Development/Tools
 License  : LGPL-2.1
 Requires: spice-gtk-bin = %{version}-%{release}
@@ -56,7 +56,6 @@ BuildRequires : pkgconfig(spice-protocol)
 BuildRequires : pkgconfig(usbutils)
 BuildRequires : pkgconfig(x11)
 BuildRequires : pyparsing
-BuildRequires : pyparsing-legacypython
 BuildRequires : python-core
 BuildRequires : usbredir-dev
 Patch1: CVE-2017-12194.nopatch
@@ -71,7 +70,6 @@ Summary: bin components for the spice-gtk package.
 Group: Binaries
 Requires: spice-gtk-data = %{version}-%{release}
 Requires: spice-gtk-license = %{version}-%{release}
-Requires: spice-gtk-man = %{version}-%{release}
 
 %description bin
 bin components for the spice-gtk package.
@@ -92,6 +90,7 @@ Requires: spice-gtk-lib = %{version}-%{release}
 Requires: spice-gtk-bin = %{version}-%{release}
 Requires: spice-gtk-data = %{version}-%{release}
 Provides: spice-gtk-devel = %{version}-%{release}
+Requires: spice-gtk = %{version}-%{release}
 
 %description dev
 dev components for the spice-gtk package.
@@ -148,8 +147,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1550869235
-export LDFLAGS="${LDFLAGS} -fno-lto"
+export SOURCE_DATE_EPOCH=1554341666
 export CFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
 export FCFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
 export FFLAGS="$CFLAGS -fstack-protector-strong -mzero-caller-saved-regs=used "
@@ -165,7 +163,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1550869235
+export SOURCE_DATE_EPOCH=1554341666
 rm -rf %{buildroot}
 mkdir -p %{buildroot}/usr/share/package-licenses/spice-gtk
 cp COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/COPYING

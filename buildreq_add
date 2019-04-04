@@ -10,7 +10,7 @@ gstreamer-dev
 usbredir-dev
 pyparsing
 python-core
-pyparsing-legacypython
+#deprecated-pyparsing-legacypython
 gst-plugins-base-dev
 gstreamer-dev
 gst-plugins-good
