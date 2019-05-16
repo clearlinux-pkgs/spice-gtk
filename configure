@@ -1,1 +1,1 @@
---with-gtk=3.0 --enable-usbredir=yes
+--with-gtk=3.0 --enable-usbredir=yes --enable-vala

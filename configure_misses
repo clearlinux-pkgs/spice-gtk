@@ -6,6 +6,7 @@ Configure miss: the avdec_h264 GStreamer element
 Configure miss: the avdec_h265 GStreamer element
 Configure miss: SMARTCARD
 Configure miss: acl_get_file in -lc
+Configure miss: whether -Wno-missing-field-initializers is needed
 Configure miss: floor
 Configure miss: SMARTCARD
 Configure miss: CELT051
