@@ -6,11 +6,11 @@
 #
 Name     : spice-gtk
 Version  : 0.37
-Release  : 30
+Release  : 31
 URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
 Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
-Source99 : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2.sig
-Summary  : GTK+ client library for SPICE
+Source1 : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2.sig
+Summary  : SPICE Client Gtk 3.0 library
 Group    : Development/Tools
 License  : LGPL-2.1
 Requires: spice-gtk-bin = %{version}-%{release}
@@ -59,7 +59,6 @@ BuildRequires : pkgconfig(spice-protocol)
 BuildRequires : pkgconfig(usbutils)
 BuildRequires : pkgconfig(x11)
 BuildRequires : pyparsing
-BuildRequires : python-core
 BuildRequires : usbredir-dev
 BuildRequires : vala
 Patch1: CVE-2017-12194.nopatch
@@ -94,7 +93,6 @@ Requires: spice-gtk-lib = %{version}-%{release}
 Requires: spice-gtk-bin = %{version}-%{release}
 Requires: spice-gtk-data = %{version}-%{release}
 Provides: spice-gtk-devel = %{version}-%{release}
-Requires: spice-gtk = %{version}-%{release}
 Requires: spice-gtk = %{version}-%{release}
 
 %description dev
@@ -152,12 +150,12 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1563037544
+export SOURCE_DATE_EPOCH=1570824959
 export GCC_IGNORE_WERROR=1
-export CFLAGS="$CFLAGS -fcf-protection=full -fno-lto -fstack-protector-strong "
-export FCFLAGS="$CFLAGS -fcf-protection=full -fno-lto -fstack-protector-strong "
-export FFLAGS="$CFLAGS -fcf-protection=full -fno-lto -fstack-protector-strong "
-export CXXFLAGS="$CXXFLAGS -fcf-protection=full -fno-lto -fstack-protector-strong "
+export CFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
+export FCFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
+export FFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
+export CXXFLAGS="$CXXFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
 %configure --disable-static --with-gtk=3.0 --enable-usbredir=yes --enable-vala
 make  %{?_smp_mflags}
 
@@ -169,11 +167,11 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1563037544
+export SOURCE_DATE_EPOCH=1570824959
 rm -rf %{buildroot}
 mkdir -p %{buildroot}/usr/share/package-licenses/spice-gtk
-cp COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/COPYING
-cp subprojects/spice-common/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/subprojects_spice-common_COPYING
+cp %{_builddir}/spice-gtk-0.37/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/01a6b4bf79aca9b556822601186afab86e8c4fbf
+cp %{_builddir}/spice-gtk-0.37/subprojects/spice-common/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/3704f4680301a60004b20f94e0b5b8c7ff1484a9
 %make_install
 %find_lang spice-gtk
 
@@ -288,8 +286,8 @@ cp subprojects/spice-common/COPYING %{buildroot}/usr/share/package-licenses/spic
 
 %files license
 %defattr(0644,root,root,0755)
-/usr/share/package-licenses/spice-gtk/COPYING
-/usr/share/package-licenses/spice-gtk/subprojects_spice-common_COPYING
+/usr/share/package-licenses/spice-gtk/01a6b4bf79aca9b556822601186afab86e8c4fbf
+/usr/share/package-licenses/spice-gtk/3704f4680301a60004b20f94e0b5b8c7ff1484a9
 
 %files man
 %defattr(0644,root,root,0755)

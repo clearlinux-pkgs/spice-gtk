@@ -9,8 +9,6 @@ opus-dev
 gstreamer-dev
 usbredir-dev
 pyparsing
-python-core
-#deprecated-pyparsing-legacypython
 gst-plugins-base-dev
 gstreamer-dev
 gst-plugins-good
