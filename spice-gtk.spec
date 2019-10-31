@@ -6,7 +6,7 @@
 #
 Name     : spice-gtk
 Version  : 0.37
-Release  : 31
+Release  : 32
 URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
 Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
 Source1 : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2.sig
@@ -19,9 +19,11 @@ Requires: spice-gtk-lib = %{version}-%{release}
 Requires: spice-gtk-license = %{version}-%{release}
 Requires: spice-gtk-locales = %{version}-%{release}
 Requires: spice-gtk-man = %{version}-%{release}
+Requires: clr-hardware-files
 BuildRequires : acl-dev
 BuildRequires : asciidoc
 BuildRequires : buildreq-meson
+BuildRequires : clr-hardware-files
 BuildRequires : docbook-xml
 BuildRequires : gettext
 BuildRequires : glibc-staticdev
@@ -56,7 +58,6 @@ BuildRequires : pkgconfig(openssl)
 BuildRequires : pkgconfig(pixman-1)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(spice-protocol)
-BuildRequires : pkgconfig(usbutils)
 BuildRequires : pkgconfig(x11)
 BuildRequires : pyparsing
 BuildRequires : usbredir-dev
@@ -144,19 +145,23 @@ man components for the spice-gtk package.
 
 %prep
 %setup -q -n spice-gtk-0.37
+cd %{_builddir}/spice-gtk-0.37
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1570824959
+export SOURCE_DATE_EPOCH=1572558598
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
 export FCFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
 export FFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
 export CXXFLAGS="$CXXFLAGS -fno-lto -fstack-protector-strong -mzero-caller-saved-regs=used "
-%configure --disable-static --with-gtk=3.0 --enable-usbredir=yes --enable-vala
+%configure --disable-static --with-gtk=3.0 \
+--enable-usbredir=yes \
+--enable-vala \
+--with-usb-ids-path=/usr/share/hwdata/usb.ids
 make  %{?_smp_mflags}
 
 %check
@@ -167,7 +172,7 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 make VERBOSE=1 V=1 %{?_smp_mflags} check
 
 %install
-export SOURCE_DATE_EPOCH=1570824959
+export SOURCE_DATE_EPOCH=1572558598
 rm -rf %{buildroot}
 mkdir -p %{buildroot}/usr/share/package-licenses/spice-gtk
 cp %{_builddir}/spice-gtk-0.37/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/01a6b4bf79aca9b556822601186afab86e8c4fbf
