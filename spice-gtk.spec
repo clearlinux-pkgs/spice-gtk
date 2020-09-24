@@ -6,7 +6,7 @@
 #
 Name     : spice-gtk
 Version  : 0.37
-Release  : 32
+Release  : 33
 URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
 Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
 Source1 : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2.sig
