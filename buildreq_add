@@ -1,21 +1,19 @@
 # This file contains additional build requirements that did not get
 # picked up automatically. One name per line, no whitespace.
-libjpeg-turbo-dev
-gtk+-dev
+acl-dev
+asciidoc
+clr-hardware-files
 gobject-introspection-dev
-gobject-introspection
-lz4-dev
-opus-dev
-gstreamer-dev
-usbredir-dev
-pyparsing
+gst-plugins-bad
 gst-plugins-base-dev
-gstreamer-dev
 gst-plugins-good
 gst-plugins-ugly
-gst-plugins-bad
-asciidoc
+gstreamer-dev
+gtk+-dev
+libjpeg-turbo-dev
+lz4-dev
+opus-dev
+pyparsing
+six
 usbredir-dev
-acl-dev
 vala
-clr-hardware-files

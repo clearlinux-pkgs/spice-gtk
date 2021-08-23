@@ -1,4 +1,4 @@
---with-gtk=3.0
---enable-usbredir=yes
---enable-vala
---with-usb-ids-path=/usr/share/hwdata/usb.ids
+-Dgtk=enabled
+-Dusbredir=enabled
+-Dvapi=enabled
+-Dusb-ids-path=/usr/share/hwdata/usb.ids

@@ -10,21 +10,16 @@ option('extra-checks',
     yield : true,
     description : 'Enable extra checks on code')
 
-option('celt051',
-    type : 'feature',
-    yield : true,
-    description: 'Enable celt051 audio codec')
-
 option('opus',
     type : 'feature',
     yield : true,
     description: 'Enable Opus audio codec')
 
-option('recorder',
-    type : 'boolean',
-    value : false,
-    yield : true,
-    description: 'Enable recorder instrumentation')
+option('instrumentation',
+    type : 'combo',
+    value : 'no',
+    choices : ['recorder', 'agent', 'no'],
+    description: 'Enable instrumentation')
 
 option('smartcard',
     type : 'feature',
@@ -44,5 +39,16 @@ option('manual',
 
 option('generate-code',
     type : 'combo',
-    choices : ['all', 'server', 'client'],
+    choices : ['all', 'server', 'client', 'none'],
     description : 'Which code should be built')
+
+option('tests',
+    type : 'boolean',
+    value : true,
+    yield : true,
+    description : 'Enable SPICE tests')
+
+option('spice-protocol-version',
+    type : 'string',
+    value : '0.1', # not existing low number version
+    description : 'Minimal requested SPICE protocol version')

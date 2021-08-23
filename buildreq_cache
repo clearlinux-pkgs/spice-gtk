@@ -1,2 +1,14 @@
-0.37
-glibc-staticdev
+0.39
+gtk-doc
+json-glib-dev
+openssl-dev
+pkgconfig(gtk+-3.0)
+pkgconfig(json-glib-1.0)
+pkgconfig(libcacard)
+pkgconfig(libcap-ng)
+pkgconfig(libsasl2)
+pkgconfig(libva-x11)
+pkgconfig(openssl)
+pkgconfig(polkit-gobject-1)
+pkgconfig(vapigen)
+polkit-dev

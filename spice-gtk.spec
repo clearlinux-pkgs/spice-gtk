@@ -5,17 +5,18 @@
 # Source0 file verified with key 0x97D9123DE37A484F (toso@posteo.net)
 #
 Name     : spice-gtk
-Version  : 0.37
-Release  : 34
-URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
-Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2
-Source1 : https://www.spice-space.org/download/gtk/spice-gtk-0.37.tar.bz2.sig
-Summary  : SPICE Client Gtk 3.0 library
+Version  : 0.39
+Release  : 35
+URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.39.tar.xz
+Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.39.tar.xz
+Source1  : https://www.spice-space.org/download/gtk/spice-gtk-0.39.tar.xz.sig
+Summary  : Lock-free, real-time flight recorder for C or C++ programs
 Group    : Development/Tools
-License  : LGPL-2.1
+License  : BSD-3-Clause GPL-2.0 GPL-3.0 GPL-3.0+ LGPL-2.1 LGPL-2.1+ LGPL-3.0
 Requires: spice-gtk-bin = %{version}-%{release}
 Requires: spice-gtk-data = %{version}-%{release}
 Requires: spice-gtk-lib = %{version}-%{release}
+Requires: spice-gtk-libexec = %{version}-%{release}
 Requires: spice-gtk-license = %{version}-%{release}
 Requires: spice-gtk-locales = %{version}-%{release}
 Requires: spice-gtk-man = %{version}-%{release}
@@ -23,11 +24,8 @@ Requires: clr-hardware-files
 BuildRequires : acl-dev
 BuildRequires : asciidoc
 BuildRequires : buildreq-meson
+BuildRequires : buildreq-qmake
 BuildRequires : clr-hardware-files
-BuildRequires : docbook-xml
-BuildRequires : gettext
-BuildRequires : glibc-staticdev
-BuildRequires : gobject-introspection
 BuildRequires : gobject-introspection-dev
 BuildRequires : gst-plugins-bad
 BuildRequires : gst-plugins-base-dev
@@ -36,43 +34,36 @@ BuildRequires : gst-plugins-ugly
 BuildRequires : gstreamer-dev
 BuildRequires : gtk+-dev
 BuildRequires : gtk-doc
-BuildRequires : gtk-doc-dev
+BuildRequires : json-glib-dev
 BuildRequires : libjpeg-turbo-dev
-BuildRequires : libxslt-bin
 BuildRequires : lz4-dev
+BuildRequires : openssl-dev
 BuildRequires : opus-dev
-BuildRequires : perl(XML::Parser)
-BuildRequires : pkgconfig(cairo)
-BuildRequires : pkgconfig(gio-2.0)
-BuildRequires : pkgconfig(glib-2.0)
-BuildRequires : pkgconfig(gobject-2.0)
-BuildRequires : pkgconfig(gthread-2.0)
 BuildRequires : pkgconfig(gtk+-3.0)
 BuildRequires : pkgconfig(json-glib-1.0)
-BuildRequires : pkgconfig(libpulse)
-BuildRequires : pkgconfig(libpulse-mainloop-glib)
-BuildRequires : pkgconfig(libsoup-2.4)
-BuildRequires : pkgconfig(libusb-1.0)
+BuildRequires : pkgconfig(libcacard)
+BuildRequires : pkgconfig(libcap-ng)
+BuildRequires : pkgconfig(libsasl2)
 BuildRequires : pkgconfig(libva-x11)
 BuildRequires : pkgconfig(openssl)
-BuildRequires : pkgconfig(pixman-1)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(spice-protocol)
-BuildRequires : pkgconfig(x11)
+BuildRequires : pkgconfig(vapigen)
+BuildRequires : polkit-dev
 BuildRequires : pyparsing
+BuildRequires : six
 BuildRequires : usbredir-dev
 BuildRequires : vala
 Patch1: CVE-2017-12194.nopatch
 
 %description
-spice-gtk
-=========
-A Gtk client and libraries for SPICE remote desktop servers.
+Flight recorder for C and C++ programs using printf-like 'record' statements.
 
 %package bin
 Summary: bin components for the spice-gtk package.
 Group: Binaries
 Requires: spice-gtk-data = %{version}-%{release}
+Requires: spice-gtk-libexec = %{version}-%{release}
 Requires: spice-gtk-license = %{version}-%{release}
 
 %description bin
@@ -113,10 +104,20 @@ doc components for the spice-gtk package.
 Summary: lib components for the spice-gtk package.
 Group: Libraries
 Requires: spice-gtk-data = %{version}-%{release}
+Requires: spice-gtk-libexec = %{version}-%{release}
 Requires: spice-gtk-license = %{version}-%{release}
 
 %description lib
 lib components for the spice-gtk package.
+
+
+%package libexec
+Summary: libexec components for the spice-gtk package.
+Group: Default
+Requires: spice-gtk-license = %{version}-%{release}
+
+%description libexec
+libexec components for the spice-gtk package.
 
 
 %package license
@@ -144,40 +145,43 @@ man components for the spice-gtk package.
 
 
 %prep
-%setup -q -n spice-gtk-0.37
-cd %{_builddir}/spice-gtk-0.37
+%setup -q -n spice-gtk-0.39
+cd %{_builddir}/spice-gtk-0.39
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1572558598
+export SOURCE_DATE_EPOCH=1629756908
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
-export FCFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
-export FFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
+export FCFLAGS="$FFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
+export FFLAGS="$FFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
 export CXXFLAGS="$CXXFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
-%configure --disable-static --with-gtk=3.0 \
---enable-usbredir=yes \
---enable-vala \
---with-usb-ids-path=/usr/share/hwdata/usb.ids
-make  %{?_smp_mflags}
+CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --libdir=lib64 --prefix=/usr --buildtype=plain -Dgtk=enabled \
+-Dusbredir=enabled \
+-Dvapi=enabled \
+-Dusb-ids-path=/usr/share/hwdata/usb.ids  builddir
+ninja -v -C builddir
 
 %check
 export LANG=C.UTF-8
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
-make VERBOSE=1 V=1 %{?_smp_mflags} check
+meson test -C builddir
 
 %install
-export SOURCE_DATE_EPOCH=1572558598
-rm -rf %{buildroot}
 mkdir -p %{buildroot}/usr/share/package-licenses/spice-gtk
-cp %{_builddir}/spice-gtk-0.37/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/01a6b4bf79aca9b556822601186afab86e8c4fbf
-cp %{_builddir}/spice-gtk-0.37/subprojects/spice-common/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/3704f4680301a60004b20f94e0b5b8c7ff1484a9
-%make_install
+cp %{_builddir}/spice-gtk-0.39/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/01a6b4bf79aca9b556822601186afab86e8c4fbf
+cp %{_builddir}/spice-gtk-0.39/subprojects/keycodemapdb/LICENSE.BSD %{buildroot}/usr/share/package-licenses/spice-gtk/ea5b412c09f3b29ba1d81a61b878c5c16ffe69d8
+cp %{_builddir}/spice-gtk-0.39/subprojects/keycodemapdb/LICENSE.GPL2 %{buildroot}/usr/share/package-licenses/spice-gtk/06877624ea5c77efe3b7e39b0f909eda6e25a4ec
+cp %{_builddir}/spice-gtk-0.39/subprojects/spice-common/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/3704f4680301a60004b20f94e0b5b8c7ff1484a9
+cp %{_builddir}/spice-gtk-0.39/subprojects/spice-common/common/recorder/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/a8a12e6867d7ee39c21d9b11a984066099b6fb6b
+cp %{_builddir}/spice-gtk-0.39/subprojects/spice-common/common/recorder/make-it-quick/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/12d81f50767d4e09aa7877da077ad9d1b915d75b
+cp %{_builddir}/spice-gtk-0.39/subprojects/spice-common/common/recorder/scope/COPYING %{buildroot}/usr/share/package-licenses/spice-gtk/12d81f50767d4e09aa7877da077ad9d1b915d75b
+DESTDIR=%{buildroot} ninja -C builddir install
 %find_lang spice-gtk
 
 %files
@@ -185,7 +189,6 @@ cp %{_builddir}/spice-gtk-0.37/subprojects/spice-common/COPYING %{buildroot}/usr
 
 %files bin
 %defattr(-,root,root,-)
-/usr/bin/spice-client-glib-usb-acl-helper
 /usr/bin/spicy
 /usr/bin/spicy-screenshot
 /usr/bin/spicy-stats
@@ -251,15 +254,18 @@ cp %{_builddir}/spice-gtk-0.37/subprojects/spice-common/COPYING %{buildroot}/usr
 /usr/share/gtk-doc/html/spice-gtk/SpiceMainChannel.html
 /usr/share/gtk-doc/html/spice-gtk/SpicePlaybackChannel.html
 /usr/share/gtk-doc/html/spice-gtk/SpicePortChannel.html
+/usr/share/gtk-doc/html/spice-gtk/SpiceQmpPort.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceRecordChannel.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceSession.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceSmartcardChannel.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceSmartcardManager.html
+/usr/share/gtk-doc/html/spice-gtk/SpiceURI.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceUsbDeviceManager.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceUsbDeviceWidget.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceUsbredirChannel.html
 /usr/share/gtk-doc/html/spice-gtk/SpiceWebdavChannel.html
 /usr/share/gtk-doc/html/spice-gtk/annotation-glossary.html
+/usr/share/gtk-doc/html/spice-gtk/api-index-deprecated.html
 /usr/share/gtk-doc/html/spice-gtk/api-index-full.html
 /usr/share/gtk-doc/html/spice-gtk/api-reference.html
 /usr/share/gtk-doc/html/spice-gtk/application-support.html
@@ -268,13 +274,35 @@ cp %{_builddir}/spice-gtk-0.37/subprojects/spice-common/COPYING %{buildroot}/usr
 /usr/share/gtk-doc/html/spice-gtk/ch03.html
 /usr/share/gtk-doc/html/spice-gtk/home.png
 /usr/share/gtk-doc/html/spice-gtk/index.html
+/usr/share/gtk-doc/html/spice-gtk/ix02.html
+/usr/share/gtk-doc/html/spice-gtk/ix03.html
+/usr/share/gtk-doc/html/spice-gtk/ix04.html
+/usr/share/gtk-doc/html/spice-gtk/ix05.html
+/usr/share/gtk-doc/html/spice-gtk/ix06.html
+/usr/share/gtk-doc/html/spice-gtk/ix07.html
+/usr/share/gtk-doc/html/spice-gtk/ix08.html
+/usr/share/gtk-doc/html/spice-gtk/ix09.html
+/usr/share/gtk-doc/html/spice-gtk/ix10.html
+/usr/share/gtk-doc/html/spice-gtk/ix11.html
+/usr/share/gtk-doc/html/spice-gtk/ix12.html
+/usr/share/gtk-doc/html/spice-gtk/ix13.html
+/usr/share/gtk-doc/html/spice-gtk/ix14.html
+/usr/share/gtk-doc/html/spice-gtk/ix15.html
+/usr/share/gtk-doc/html/spice-gtk/ix16.html
+/usr/share/gtk-doc/html/spice-gtk/ix17.html
+/usr/share/gtk-doc/html/spice-gtk/ix18.html
+/usr/share/gtk-doc/html/spice-gtk/ix19.html
+/usr/share/gtk-doc/html/spice-gtk/ix20.html
+/usr/share/gtk-doc/html/spice-gtk/ix21.html
+/usr/share/gtk-doc/html/spice-gtk/ix22.html
+/usr/share/gtk-doc/html/spice-gtk/ix23.html
+/usr/share/gtk-doc/html/spice-gtk/ix24.html
+/usr/share/gtk-doc/html/spice-gtk/ix25.html
 /usr/share/gtk-doc/html/spice-gtk/left-insensitive.png
 /usr/share/gtk-doc/html/spice-gtk/left.png
 /usr/share/gtk-doc/html/spice-gtk/object-tree.html
 /usr/share/gtk-doc/html/spice-gtk/right-insensitive.png
 /usr/share/gtk-doc/html/spice-gtk/right.png
-/usr/share/gtk-doc/html/spice-gtk/spice-gtk-SpiceQmpPort.html
-/usr/share/gtk-doc/html/spice-gtk/spice-gtk-SpiceURI.html
 /usr/share/gtk-doc/html/spice-gtk/spice-gtk-Utilities.html
 /usr/share/gtk-doc/html/spice-gtk/spice-gtk-spice-version.html
 /usr/share/gtk-doc/html/spice-gtk/spice-gtk.devhelp2
@@ -285,14 +313,22 @@ cp %{_builddir}/spice-gtk-0.37/subprojects/spice-common/COPYING %{buildroot}/usr
 %files lib
 %defattr(-,root,root,-)
 /usr/lib64/libspice-client-glib-2.0.so.8
-/usr/lib64/libspice-client-glib-2.0.so.8.6.0
+/usr/lib64/libspice-client-glib-2.0.so.8.7.0
 /usr/lib64/libspice-client-gtk-3.0.so.5
 /usr/lib64/libspice-client-gtk-3.0.so.5.0.0
+
+%files libexec
+%defattr(-,root,root,-)
+/usr/libexec/spice-client-glib-usb-acl-helper
 
 %files license
 %defattr(0644,root,root,0755)
 /usr/share/package-licenses/spice-gtk/01a6b4bf79aca9b556822601186afab86e8c4fbf
+/usr/share/package-licenses/spice-gtk/06877624ea5c77efe3b7e39b0f909eda6e25a4ec
+/usr/share/package-licenses/spice-gtk/12d81f50767d4e09aa7877da077ad9d1b915d75b
 /usr/share/package-licenses/spice-gtk/3704f4680301a60004b20f94e0b5b8c7ff1484a9
+/usr/share/package-licenses/spice-gtk/a8a12e6867d7ee39c21d9b11a984066099b6fb6b
+/usr/share/package-licenses/spice-gtk/ea5b412c09f3b29ba1d81a61b878c5c16ffe69d8
 
 %files man
 %defattr(0644,root,root,0755)
