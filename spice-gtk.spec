@@ -6,7 +6,7 @@
 #
 Name     : spice-gtk
 Version  : 0.39
-Release  : 35
+Release  : 36
 URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.39.tar.xz
 Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.39.tar.xz
 Source1  : https://www.spice-space.org/download/gtk/spice-gtk-0.39.tar.xz.sig
@@ -33,7 +33,6 @@ BuildRequires : gst-plugins-good
 BuildRequires : gst-plugins-ugly
 BuildRequires : gstreamer-dev
 BuildRequires : gtk+-dev
-BuildRequires : gtk-doc
 BuildRequires : json-glib-dev
 BuildRequires : libjpeg-turbo-dev
 BuildRequires : lz4-dev
@@ -49,12 +48,16 @@ BuildRequires : pkgconfig(openssl)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(spice-protocol)
 BuildRequires : pkgconfig(vapigen)
+BuildRequires : pkgconfig(wayland-protocols)
 BuildRequires : polkit-dev
-BuildRequires : pyparsing
-BuildRequires : six
+BuildRequires : pypi(pyparsing)
+BuildRequires : pypi(six)
+BuildRequires : pypi-pyparsing
+BuildRequires : python3
 BuildRequires : usbredir-dev
 BuildRequires : vala
 Patch1: CVE-2017-12194.nopatch
+Patch2: build.patch
 
 %description
 Flight recorder for C and C++ programs using printf-like 'record' statements.
@@ -89,15 +92,6 @@ Requires: spice-gtk = %{version}-%{release}
 
 %description dev
 dev components for the spice-gtk package.
-
-
-%package doc
-Summary: doc components for the spice-gtk package.
-Group: Documentation
-Requires: spice-gtk-man = %{version}-%{release}
-
-%description doc
-doc components for the spice-gtk package.
 
 
 %package lib
@@ -147,13 +141,14 @@ man components for the spice-gtk package.
 %prep
 %setup -q -n spice-gtk-0.39
 cd %{_builddir}/spice-gtk-0.39
+%patch2 -p1
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1629756908
+export SOURCE_DATE_EPOCH=1642786095
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
 export FCFLAGS="$FFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
@@ -162,7 +157,8 @@ export CXXFLAGS="$CXXFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-re
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --libdir=lib64 --prefix=/usr --buildtype=plain -Dgtk=enabled \
 -Dusbredir=enabled \
 -Dvapi=enabled \
--Dusb-ids-path=/usr/share/hwdata/usb.ids  builddir
+-Dusb-ids-path=/usr/share/hwdata/usb.ids \
+-Dgtk_doc=disabled  builddir
 ninja -v -C builddir
 
 %check
@@ -170,7 +166,7 @@ export LANG=C.UTF-8
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
-meson test -C builddir
+meson test -C builddir --print-errorlogs
 
 %install
 mkdir -p %{buildroot}/usr/share/package-licenses/spice-gtk
@@ -240,75 +236,6 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/lib64/libspice-client-gtk-3.0.so
 /usr/lib64/pkgconfig/spice-client-glib-2.0.pc
 /usr/lib64/pkgconfig/spice-client-gtk-3.0.pc
-
-%files doc
-%defattr(0644,root,root,0755)
-/usr/share/gtk-doc/html/spice-gtk/SpiceAudio.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceCursorChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceDisplay.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceDisplayChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceFileTransferTask.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceGtkSession.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceInputsChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceMainChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpicePlaybackChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpicePortChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceQmpPort.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceRecordChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceSession.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceSmartcardChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceSmartcardManager.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceURI.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceUsbDeviceManager.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceUsbDeviceWidget.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceUsbredirChannel.html
-/usr/share/gtk-doc/html/spice-gtk/SpiceWebdavChannel.html
-/usr/share/gtk-doc/html/spice-gtk/annotation-glossary.html
-/usr/share/gtk-doc/html/spice-gtk/api-index-deprecated.html
-/usr/share/gtk-doc/html/spice-gtk/api-index-full.html
-/usr/share/gtk-doc/html/spice-gtk/api-reference.html
-/usr/share/gtk-doc/html/spice-gtk/application-support.html
-/usr/share/gtk-doc/html/spice-gtk/ch01.html
-/usr/share/gtk-doc/html/spice-gtk/ch02.html
-/usr/share/gtk-doc/html/spice-gtk/ch03.html
-/usr/share/gtk-doc/html/spice-gtk/home.png
-/usr/share/gtk-doc/html/spice-gtk/index.html
-/usr/share/gtk-doc/html/spice-gtk/ix02.html
-/usr/share/gtk-doc/html/spice-gtk/ix03.html
-/usr/share/gtk-doc/html/spice-gtk/ix04.html
-/usr/share/gtk-doc/html/spice-gtk/ix05.html
-/usr/share/gtk-doc/html/spice-gtk/ix06.html
-/usr/share/gtk-doc/html/spice-gtk/ix07.html
-/usr/share/gtk-doc/html/spice-gtk/ix08.html
-/usr/share/gtk-doc/html/spice-gtk/ix09.html
-/usr/share/gtk-doc/html/spice-gtk/ix10.html
-/usr/share/gtk-doc/html/spice-gtk/ix11.html
-/usr/share/gtk-doc/html/spice-gtk/ix12.html
-/usr/share/gtk-doc/html/spice-gtk/ix13.html
-/usr/share/gtk-doc/html/spice-gtk/ix14.html
-/usr/share/gtk-doc/html/spice-gtk/ix15.html
-/usr/share/gtk-doc/html/spice-gtk/ix16.html
-/usr/share/gtk-doc/html/spice-gtk/ix17.html
-/usr/share/gtk-doc/html/spice-gtk/ix18.html
-/usr/share/gtk-doc/html/spice-gtk/ix19.html
-/usr/share/gtk-doc/html/spice-gtk/ix20.html
-/usr/share/gtk-doc/html/spice-gtk/ix21.html
-/usr/share/gtk-doc/html/spice-gtk/ix22.html
-/usr/share/gtk-doc/html/spice-gtk/ix23.html
-/usr/share/gtk-doc/html/spice-gtk/ix24.html
-/usr/share/gtk-doc/html/spice-gtk/ix25.html
-/usr/share/gtk-doc/html/spice-gtk/left-insensitive.png
-/usr/share/gtk-doc/html/spice-gtk/left.png
-/usr/share/gtk-doc/html/spice-gtk/object-tree.html
-/usr/share/gtk-doc/html/spice-gtk/right-insensitive.png
-/usr/share/gtk-doc/html/spice-gtk/right.png
-/usr/share/gtk-doc/html/spice-gtk/spice-gtk-Utilities.html
-/usr/share/gtk-doc/html/spice-gtk/spice-gtk-spice-version.html
-/usr/share/gtk-doc/html/spice-gtk/spice-gtk.devhelp2
-/usr/share/gtk-doc/html/spice-gtk/style.css
-/usr/share/gtk-doc/html/spice-gtk/up-insensitive.png
-/usr/share/gtk-doc/html/spice-gtk/up.png
 
 %files lib
 %defattr(-,root,root,-)

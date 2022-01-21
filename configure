@@ -2,3 +2,4 @@
 -Dusbredir=enabled
 -Dvapi=enabled
 -Dusb-ids-path=/usr/share/hwdata/usb.ids
+-Dgtk_doc=disabled

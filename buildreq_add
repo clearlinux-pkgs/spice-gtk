@@ -13,7 +13,9 @@ gtk+-dev
 libjpeg-turbo-dev
 lz4-dev
 opus-dev
-pyparsing
-six
+pypi(pyparsing)
+pypi-pyparsing
+python3
+pypi(six)
 usbredir-dev
 vala

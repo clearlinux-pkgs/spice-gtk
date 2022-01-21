@@ -1,5 +1,4 @@
 0.39
-gtk-doc
 json-glib-dev
 openssl-dev
 pkgconfig(gtk+-3.0)
@@ -11,4 +10,5 @@ pkgconfig(libva-x11)
 pkgconfig(openssl)
 pkgconfig(polkit-gobject-1)
 pkgconfig(vapigen)
+pkgconfig(wayland-protocols)
 polkit-dev
