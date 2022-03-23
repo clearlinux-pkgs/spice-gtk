@@ -1,13 +1,15 @@
---- spice-gtk-0.39/subprojects/spice-common/meson.build~	2020-12-01 16:32:00.000000000 +0000
-+++ spice-gtk-0.39/subprojects/spice-common/meson.build	2022-01-21 17:19:52.776309725 +0000
-@@ -129,15 +129,6 @@
+diff --git a/subprojects/spice-common/meson.build b/subprojects/spice-common/meson.build
+index eeccecd..0ae5ee2 100644
+--- a/subprojects/spice-common/meson.build
++++ b/subprojects/spice-common/meson.build
+@@ -129,15 +129,6 @@ if spice_common_generate_client_code or spice_common_generate_server_code
    py_module = import('python')
-   python = py_module.find_installation()
+   python = py_module.find_installation('python3')
  
 -  if get_option('python-checks')
 -    foreach module : ['six', 'pyparsing']
 -      message('Checking for python module @0@'.format(module))
--      cmd = run_command(python, '-m', module)
+-      cmd = run_command(python, '-c', 'import @0@'.format(module))
 -      if cmd.returncode() != 0
 -        error('Python module @0@ not found'.format(module))
 -      endif

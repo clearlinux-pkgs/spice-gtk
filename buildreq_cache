@@ -1,4 +1,4 @@
-0.39
+0.40
 json-glib-dev
 openssl-dev
 pkgconfig(gtk+-3.0)
