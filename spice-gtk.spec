@@ -6,7 +6,7 @@
 #
 Name     : spice-gtk
 Version  : 0.41
-Release  : 39
+Release  : 40
 URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.41.tar.xz
 Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.41.tar.xz
 Source1  : https://www.spice-space.org/download/gtk/spice-gtk-0.41.tar.xz.sig
@@ -147,7 +147,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1663087002
+export SOURCE_DATE_EPOCH=1664906900
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
 export FCFLAGS="$FFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
