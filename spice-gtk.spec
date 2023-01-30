@@ -5,11 +5,11 @@
 # Source0 file verified with key 0x97D9123DE37A484F (toso@posteo.net)
 #
 Name     : spice-gtk
-Version  : 0.41
-Release  : 40
-URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.41.tar.xz
-Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.41.tar.xz
-Source1  : https://www.spice-space.org/download/gtk/spice-gtk-0.41.tar.xz.sig
+Version  : 0.42
+Release  : 41
+URL      : https://www.spice-space.org/download/gtk/spice-gtk-0.42.tar.xz
+Source0  : https://www.spice-space.org/download/gtk/spice-gtk-0.42.tar.xz
+Source1  : https://www.spice-space.org/download/gtk/spice-gtk-0.42.tar.xz.sig
 Summary  : Lock-free, real-time flight recorder for C or C++ programs
 Group    : Development/Tools
 License  : BSD-3-Clause GPL-2.0 GPL-3.0 GPL-3.0+ LGPL-2.0+ LGPL-2.1 LGPL-3.0
@@ -26,6 +26,7 @@ BuildRequires : asciidoc
 BuildRequires : buildreq-meson
 BuildRequires : buildreq-qmake
 BuildRequires : clr-hardware-files
+BuildRequires : cmake
 BuildRequires : gobject-introspection-dev
 BuildRequires : gst-plugins-bad
 BuildRequires : gst-plugins-base-dev
@@ -55,6 +56,9 @@ BuildRequires : pypi-pyparsing
 BuildRequires : python3
 BuildRequires : usbredir-dev
 BuildRequires : vala
+# Suppress stripping binaries
+%define __strip /bin/true
+%define debug_package %{nil}
 Patch1: CVE-2017-12194.nopatch
 Patch2: build.patch
 
@@ -138,8 +142,8 @@ man components for the spice-gtk package.
 
 
 %prep
-%setup -q -n spice-gtk-0.41
-cd %{_builddir}/spice-gtk-0.41
+%setup -q -n spice-gtk-0.42
+cd %{_builddir}/spice-gtk-0.42
 %patch2 -p1
 
 %build
@@ -147,12 +151,12 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1664906900
+export SOURCE_DATE_EPOCH=1675118506
 export GCC_IGNORE_WERROR=1
-export CFLAGS="$CFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
-export FCFLAGS="$FFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
-export FFLAGS="$FFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
-export CXXFLAGS="$CXXFLAGS -fno-lto -fstack-protector-strong -fzero-call-used-regs=used "
+export CFLAGS="$CFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -fstack-protector-strong -fzero-call-used-regs=used -g1 -gno-column-info -gno-variable-location-views -gz "
+export FCFLAGS="$FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -fstack-protector-strong -fzero-call-used-regs=used -g1 -gno-column-info -gno-variable-location-views -gz "
+export FFLAGS="$FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -fstack-protector-strong -fzero-call-used-regs=used -g1 -gno-column-info -gno-variable-location-views -gz "
+export CXXFLAGS="$CXXFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -fstack-protector-strong -fzero-call-used-regs=used -g1 -gno-column-info -gno-variable-location-views -gz "
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --libdir=lib64 --prefix=/usr --buildtype=plain -Dgtk=enabled \
 -Dusbredir=enabled \
 -Dvapi=enabled \
@@ -238,9 +242,9 @@ DESTDIR=%{buildroot} ninja -C builddir install
 %files lib
 %defattr(-,root,root,-)
 /usr/lib64/libspice-client-glib-2.0.so.8
-/usr/lib64/libspice-client-glib-2.0.so.8.8.1
+/usr/lib64/libspice-client-glib-2.0.so.8.8.2
 /usr/lib64/libspice-client-gtk-3.0.so.5
-/usr/lib64/libspice-client-gtk-3.0.so.5.1.0
+/usr/lib64/libspice-client-gtk-3.0.so.5.1.1
 
 %files libexec
 %defattr(-,root,root,-)
